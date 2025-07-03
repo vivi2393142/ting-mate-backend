@@ -1,14 +1,20 @@
+from typing import Optional
+
 from pydantic import BaseModel, EmailStr, Field
 
+from app.schemas.user import User
 
+
+# TODO: Update examples to match the real data
 class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
-    anonymous_id: str
+    email: EmailStr = Field(..., example="test@example.com")
+    password: str = Field(..., example="Test123!")
+    anonymous_id: Optional[str] = None
 
 
 class RegisterResponse(BaseModel):
-    email: EmailStr
+    message: str
+    user: User
 
 
 class LoginRequest(BaseModel):
