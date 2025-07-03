@@ -1,0 +1,12 @@
+# Testing
+pytest
+httpx
+
+# Code quality
+black
+isort
+flake8
+autoflake
+
+# Tooling
+pip-tools
