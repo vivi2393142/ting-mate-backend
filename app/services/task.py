@@ -4,14 +4,14 @@ from app.db.fake_db import fake_tasks_db
 from app.schemas.task import Task, TaskDB, UpdateTaskFields
 
 
-def taskdb_to_response(task: TaskDB) -> Task:
+def taskdb_to_task(task: TaskDB) -> Task:
     return Task(**task.model_dump(exclude={"deleted"}))
 
 
 def get_tasks_for_user(user_id: str) -> List[Task]:
     # Only return tasks that are not deleted, and convert to Task
     return [
-        taskdb_to_response(task)
+        taskdb_to_task(task)
         for task in fake_tasks_db.get(user_id, [])
         if not getattr(task, "deleted", False)
     ]
@@ -32,7 +32,7 @@ def update_task(
             update_data = updates.model_dump(exclude_unset=True)
             for key, value in update_data.items():
                 setattr(task, key, value)
-            return taskdb_to_response(task)
+            return taskdb_to_task(task)
     return None
 
 

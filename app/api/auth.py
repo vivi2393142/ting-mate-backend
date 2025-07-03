@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException
 
+from app.core.api_decorator import post_route
 from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
@@ -12,25 +13,28 @@ from app.services.user import create_user, get_user
 router = APIRouter()
 
 
-@router.post(
-    "/auth/register",
+@post_route(
+    path="/auth/register",
+    summary="User Registration",
+    description="Register a new user. If anonymous_id is provided, upgrade to a registered user.",
     response_model=RegisterResponse,
-    summary="Register a new user",
-    response_description="User registered successfully",
+    tags=["authentication"],
+    status_code=201,
 )
 def register(request: RegisterRequest):
     """
     Register a new user. If anonymous_id is provided, upgrade to a registered user.
     """
-    try:
-        user = create_user(request)
-        return RegisterResponse(message="User registered successfully", user=user)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    user = create_user(request)
+    return RegisterResponse(message="User registered successfully", user=user)
 
 
-@router.post(
-    "/auth/login", response_model=LoginResponse, summary="Login and get access token"
+@post_route(
+    path="/auth/login",
+    summary="User Login",
+    description="Login with email and password to get access token.",
+    response_model=LoginResponse,
+    tags=["authentication"],
 )
 def login(request: LoginRequest):
     """
@@ -38,8 +42,6 @@ def login(request: LoginRequest):
     """
     userdb = get_user(request.email, by="email")
     if not userdb or not verify_password(request.password, userdb.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
-        )
+        raise HTTPException(status_code=401, detail="Invalid credentials")
     access_token = create_access_token({"sub": userdb.id})
     return LoginResponse(access_token=access_token)

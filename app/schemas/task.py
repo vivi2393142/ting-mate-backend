@@ -61,3 +61,10 @@ class UpdateTaskRequest(BaseModel):
 class UpdateTaskStatusRequest(BaseModel):
     id: str
     completed: bool
+
+
+class CreateTaskRequest(BaseModel):
+    title: str
+    icon: str
+    reminderTime: ReminderTime
+    recurrence: Optional[RecurrenceRule] = None

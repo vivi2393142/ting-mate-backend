@@ -1,12 +1,21 @@
+from datetime import datetime
 from typing import List
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Path
 
 from app.api.deps import get_current_user_or_anonymous
-from app.schemas.task import Task, UpdateTaskFields, UpdateTaskStatusRequest
+from app.core.api_decorator import get_route, post_route, put_route
+from app.schemas.task import (
+    CreateTaskRequest,
+    Task,
+    UpdateTaskFields,
+    UpdateTaskStatusRequest,
+)
 from app.services.task import (
     add_task,
     get_tasks_for_user,
+    taskdb_to_task,
     update_task,
     update_task_status,
 )
@@ -14,18 +23,54 @@ from app.services.task import (
 router = APIRouter()
 
 
-@router.get("/tasks", response_model=List[Task])
+@get_route(
+    path="/tasks",
+    summary="Get Tasks",
+    description="Get all tasks for the current user.",
+    response_model=List[Task],
+    tags=["task"],
+)
 def get_tasks(user=Depends(get_current_user_or_anonymous)):
     return get_tasks_for_user(user.id)
 
 
-@router.post("/tasks", response_model=Task)
-def create_task(user=Depends(get_current_user_or_anonymous), task: Task = None):
-    add_task(user.id, task)
-    return task
+@post_route(
+    path="/tasks",
+    summary="Create Task",
+    description="Create a new task for the current user.",
+    response_model=Task,
+    tags=["task"],
+)
+def create_task(
+    user=Depends(get_current_user_or_anonymous), req: CreateTaskRequest = None
+):
+    from app.schemas.task import TaskDB
+
+    now = datetime.now()
+    task_db = TaskDB(
+        id=str(uuid4()),
+        title=req.title,
+        icon=req.icon,
+        reminderTime=req.reminderTime,
+        recurrence=req.recurrence,
+        completed=False,
+        createdAt=now,
+        updatedAt=now,
+        completedAt=None,
+        completedBy=None,
+        deleted=False,
+    )
+    add_task(user.id, task_db)
+    return taskdb_to_task(task_db)
 
 
-@router.get("/tasks/{task_id}", response_model=Task)
+@get_route(
+    path="/tasks/{task_id}",
+    summary="Get Task by ID",
+    description="Get a specific task by its ID.",
+    response_model=Task,
+    tags=["task"],
+)
 def get_task(user=Depends(get_current_user_or_anonymous), task_id: str = Path(...)):
     tasks = get_tasks_for_user(user.id)
     for t in tasks:
@@ -34,7 +79,13 @@ def get_task(user=Depends(get_current_user_or_anonymous), task_id: str = Path(..
     raise HTTPException(status_code=404, detail="Task not found")
 
 
-@router.put("/tasks/{task_id}", response_model=Task)
+@put_route(
+    path="/tasks/{task_id}",
+    summary="Update Task",
+    description="Update a task's fields by its ID.",
+    response_model=Task,
+    tags=["task"],
+)
 def update_task_api(
     user=Depends(get_current_user_or_anonymous),
     task_id: str = Path(...),
@@ -46,7 +97,13 @@ def update_task_api(
     return task
 
 
-@router.patch("/tasks/{task_id}", response_model=Task)
+@put_route(
+    path="/tasks/{task_id}/status",
+    summary="Update Task Status",
+    description="Update the completion status of a task by its ID.",
+    response_model=Task,
+    tags=["task"],
+)
 def update_task_status_api(
     user=Depends(get_current_user_or_anonymous),
     task_id: str = Path(...),
