@@ -50,10 +50,10 @@ def get_user_from_token(token: str) -> User | None:
         payload = jwt.decode(
             token, settings.secret_key, algorithms=[settings.algorithm]
         )
-        user_email = payload.get("sub")
-        if not user_email:
+        user_id = payload.get("sub")
+        if not user_id:
             return None
-        userdb = UserRepository.get_user(user_email, "email")
+        userdb = UserRepository.get_user(user_id, "id")
         if userdb:
             return UserRepository.userdb_to_user(userdb)
         return None

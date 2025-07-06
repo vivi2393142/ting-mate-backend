@@ -9,7 +9,6 @@ from app.services.user import get_user
 router = APIRouter()
 
 
-# TODO: add test
 @get_route(
     path="/user/me",
     summary="Get Current User",
@@ -21,7 +20,6 @@ def get_current_user_api(user=Depends(get_current_user)):
     return user
 
 
-# TODO: add test
 # TODO: Can only get linked user by email
 @get_route(
     path="/user/{email}",
