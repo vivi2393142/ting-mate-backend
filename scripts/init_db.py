@@ -14,7 +14,7 @@ from mysql.connector import Error
 # Add the app directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from app.core.config import settings
+from app.core.config import settings  # noqa: E402
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -37,7 +37,7 @@ def create_database():
 
         # Create database if it doesn't exist
         cursor.execute(
-            f"CREATE DATABASE IF NOT EXISTS {settings.db_name} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+            f"CREATE DATABASE IF NOT EXISTS {settings.db_name} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"  # noqa: E501
         )
         logger.info(f"Database '{settings.db_name}' created or already exists")
 
@@ -73,9 +73,72 @@ def create_tables():
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
 
+        # Create user_settings table
+        user_settings_table_sql = """
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id VARCHAR(36) PRIMARY KEY,
+            text_size ENUM('STANDARD', 'LARGE') DEFAULT 'STANDARD',
+            display_mode ENUM('FULL', 'SIMPLE') DEFAULT 'FULL',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+
+        # Create tasks table
+        tasks_table_sql = """
+        CREATE TABLE IF NOT EXISTS tasks (
+            id VARCHAR(36) PRIMARY KEY,
+            user_id VARCHAR(36) NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            icon VARCHAR(20) NOT NULL,
+            reminder_hour INT NOT NULL CHECK (reminder_hour >= 0 AND reminder_hour <= 23),
+            reminder_minute INT NOT NULL CHECK (reminder_minute >= 0 AND reminder_minute <= 59),
+            recurrence_interval INT,
+            recurrence_unit ENUM('DAY', 'WEEK', 'MONTH'),
+            recurrence_days_of_week JSON,
+            recurrence_days_of_month JSON,
+            completed BOOLEAN DEFAULT FALSE,
+            completed_at TIMESTAMP NULL,
+            completed_by VARCHAR(36) NULL,
+            deleted BOOLEAN DEFAULT FALSE,
+            created_by VARCHAR(36) NOT NULL,
+            updated_by VARCHAR(36) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (completed_by) REFERENCES users(id) ON DELETE SET NULL,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_tasks_user_id (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+
+        # Create activity_logs table
+        activity_logs_table_sql = """
+        CREATE TABLE IF NOT EXISTS activity_logs (
+            id VARCHAR(36) PRIMARY KEY,
+            user_id VARCHAR(36) NOT NULL,
+            action VARCHAR(50) NOT NULL,
+            detail JSON,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_logs_user_id (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+
         # Execute table creation
         execute_update(users_table_sql)
         logger.info("Users table created successfully")
+
+        execute_update(user_settings_table_sql)
+        logger.info("User settings table created successfully")
+
+        execute_update(tasks_table_sql)
+        logger.info("Tasks table created successfully")
+
+        execute_update(activity_logs_table_sql)
+        logger.info("Activity logs table created successfully")
 
         return True
 
