@@ -4,7 +4,6 @@ from typing import Literal
 
 import jwt
 
-import app.services.user as user
 from app.core.config import ALGORITHM, SECRET_KEY
 from app.db.fake_db import fake_users_db
 from app.schemas.auth import RegisterRequest
@@ -25,7 +24,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
-    return user.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def create_user(user_create: RegisterRequest) -> User:
