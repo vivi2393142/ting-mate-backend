@@ -49,7 +49,7 @@ def create_database():
         raise
 
 
-def create_tables():
+def create_tables(engine=None):
     """Create initial tables"""
     try:
         from app.core.database import test_connection

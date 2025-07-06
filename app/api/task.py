@@ -23,6 +23,7 @@ from app.services.task import (
 router = APIRouter()
 
 
+# TODO: add test
 @get_route(
     path="/tasks",
     summary="Get Tasks",
@@ -34,6 +35,7 @@ def get_tasks(user=Depends(get_current_user_or_anonymous)):
     return get_tasks_for_user(user.id)
 
 
+# TODO: add test
 @post_route(
     path="/tasks",
     summary="Create Task",
@@ -64,6 +66,7 @@ def create_task(
     return taskdb_to_task(task_db)
 
 
+# TODO: add test
 @get_route(
     path="/tasks/{task_id}",
     summary="Get Task by ID",
@@ -79,6 +82,7 @@ def get_task(user=Depends(get_current_user_or_anonymous), task_id: str = Path(..
     raise HTTPException(status_code=404, detail="Task not found")
 
 
+# TODO: add test
 @put_route(
     path="/tasks/{task_id}",
     summary="Update Task",
@@ -97,6 +101,7 @@ def update_task_api(
     return task
 
 
+# TODO: add test
 @put_route(
     path="/tasks/{task_id}/status",
     summary="Update Task Status",

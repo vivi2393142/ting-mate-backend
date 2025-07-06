@@ -7,8 +7,8 @@ from app.schemas.user import User
 
 # TODO: Update examples to match the real data
 class RegisterRequest(BaseModel):
-    email: EmailStr = Field(..., example="test@example.com")
-    password: str = Field(..., example="Test123!")
+    email: EmailStr = Field(..., json_schema_extra={"example": "test@example.com"})
+    password: str = Field(..., min_length=6, json_schema_extra={"example": "Test123!"})
     anonymous_id: Optional[str] = None
 
 
@@ -18,8 +18,8 @@ class RegisterResponse(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr = Field(..., example="user@example.com")
-    password: str = Field(..., example="user")
+    email: EmailStr = Field(..., json_schema_extra={"example": "user@example.com"})
+    password: str = Field(..., json_schema_extra={"example": "user"})
 
 
 class LoginResponse(BaseModel):
