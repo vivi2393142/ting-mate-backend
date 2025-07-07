@@ -6,3 +6,5 @@ python-dotenv
 passlib[bcrypt]
 pyjwt
 mysql-connector-python
+google-cloud-speech
+google-cloud-aiplatform
