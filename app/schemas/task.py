@@ -51,6 +51,7 @@ class UpdateTaskFields(BaseModel):
     icon: Optional[str] = None
     reminderTime: Optional[ReminderTime] = None
     recurrence: Optional[RecurrenceRule] = None
+    completed: Optional[bool] = None
 
 
 class UpdateTaskRequest(BaseModel):
@@ -59,7 +60,6 @@ class UpdateTaskRequest(BaseModel):
 
 
 class UpdateTaskStatusRequest(BaseModel):
-    id: str
     completed: bool
 
 
@@ -68,3 +68,12 @@ class CreateTaskRequest(BaseModel):
     icon: str
     reminderTime: ReminderTime
     recurrence: Optional[RecurrenceRule] = None
+
+
+# Response models for API
+class TaskListResponse(BaseModel):
+    tasks: List[Task]
+
+
+class TaskResponse(BaseModel):
+    task: Task

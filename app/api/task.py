@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Path
@@ -8,7 +7,8 @@ from app.api.deps import get_current_user_or_anonymous
 from app.core.api_decorator import get_route, post_route, put_route
 from app.schemas.task import (
     CreateTaskRequest,
-    Task,
+    TaskListResponse,
+    TaskResponse,
     UpdateTaskFields,
     UpdateTaskStatusRequest,
 )
@@ -23,24 +23,23 @@ from app.services.task import (
 router = APIRouter()
 
 
-# TODO: add test
 @get_route(
     path="/tasks",
     summary="Get Tasks",
     description="Get all tasks for the current user.",
-    response_model=List[Task],
+    response_model=TaskListResponse,
     tags=["task"],
 )
 def get_tasks(user=Depends(get_current_user_or_anonymous)):
-    return get_tasks_for_user(user.id)
+    tasks = get_tasks_for_user(user.id)
+    return TaskListResponse(tasks=tasks)
 
 
-# TODO: add test
 @post_route(
     path="/tasks",
     summary="Create Task",
     description="Create a new task for the current user.",
-    response_model=Task,
+    response_model=TaskResponse,
     tags=["task"],
 )
 def create_task(
@@ -63,31 +62,29 @@ def create_task(
         deleted=False,
     )
     add_task(user.id, task_db)
-    return taskdb_to_task(task_db)
+    return TaskResponse(task=taskdb_to_task(task_db))
 
 
-# TODO: add test
 @get_route(
     path="/tasks/{task_id}",
     summary="Get Task by ID",
     description="Get a specific task by its ID.",
-    response_model=Task,
+    response_model=TaskResponse,
     tags=["task"],
 )
 def get_task(user=Depends(get_current_user_or_anonymous), task_id: str = Path(...)):
     tasks = get_tasks_for_user(user.id)
     for t in tasks:
         if t.id == task_id:
-            return t
+            return TaskResponse(task=t)
     raise HTTPException(status_code=404, detail="Task not found")
 
 
-# TODO: add test
 @put_route(
     path="/tasks/{task_id}",
     summary="Update Task",
     description="Update a task's fields by its ID.",
-    response_model=Task,
+    response_model=TaskResponse,
     tags=["task"],
 )
 def update_task_api(
@@ -98,15 +95,14 @@ def update_task_api(
     task = update_task(user.id, task_id, updates)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return task
+    return TaskResponse(task=task)
 
 
-# TODO: add test
 @put_route(
     path="/tasks/{task_id}/status",
     summary="Update Task Status",
     description="Update the completion status of a task by its ID.",
-    response_model=Task,
+    response_model=TaskResponse,
     tags=["task"],
 )
 def update_task_status_api(
@@ -117,4 +113,4 @@ def update_task_status_api(
     task = update_task_status(user.id, task_id, status.completed)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    return task
+    return TaskResponse(task=task)
