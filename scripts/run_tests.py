@@ -46,6 +46,11 @@ def setup_db():
 
 def run_pytest():
     """Run pytest with consistent options"""
+    # Set environment variables for testing
+    env = os.environ.copy()
+    env["ENVIRONMENT"] = "test"
+    env["DB_NAME"] = TEST_DATABASE_NAME
+
     return subprocess.run(
         [
             "python3",
@@ -56,7 +61,8 @@ def run_pytest():
             "--tb=short",
             "--disable-warnings",
             "--color=yes",
-        ]
+        ],
+        env=env,
     )
 
 

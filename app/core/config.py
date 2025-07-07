@@ -34,6 +34,9 @@ def get_settings() -> Settings:
     if env == "production":
         # Load production settings
         settings = Settings(_env_file=".env.prod")
+    elif env == "test":
+        # Load test settings
+        settings = Settings(_env_file=".env.test")
     else:
         # Load development settings
         settings = Settings(_env_file=".env.dev")

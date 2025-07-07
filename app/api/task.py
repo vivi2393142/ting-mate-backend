@@ -1,10 +1,8 @@
-from datetime import datetime
-from uuid import uuid4
-
 from fastapi import APIRouter, Depends, HTTPException, Path
 
 from app.api.deps import get_current_user_or_anonymous
 from app.core.api_decorator import get_route, post_route, put_route
+from app.repositories.task_repository import TaskRepository
 from app.schemas.task import (
     CreateTaskRequest,
     TaskListResponse,
@@ -12,13 +10,7 @@ from app.schemas.task import (
     UpdateTaskFields,
     UpdateTaskStatusRequest,
 )
-from app.services.task import (
-    add_task,
-    get_tasks_for_user,
-    taskdb_to_task,
-    update_task,
-    update_task_status,
-)
+from app.services.task import get_tasks_for_user, update_task, update_task_status
 
 router = APIRouter()
 
@@ -45,24 +37,8 @@ def get_tasks(user=Depends(get_current_user_or_anonymous)):
 def create_task(
     user=Depends(get_current_user_or_anonymous), req: CreateTaskRequest = None
 ):
-    from app.schemas.task import TaskDB
-
-    now = datetime.now()
-    task_db = TaskDB(
-        id=str(uuid4()),
-        title=req.title,
-        icon=req.icon,
-        reminderTime=req.reminderTime,
-        recurrence=req.recurrence,
-        completed=False,
-        createdAt=now,
-        updatedAt=now,
-        completedAt=None,
-        completedBy=None,
-        deleted=False,
-    )
-    add_task(user.id, task_db)
-    return TaskResponse(task=taskdb_to_task(task_db))
+    task = TaskRepository.create_task(user.id, req)
+    return TaskResponse(task=task)
 
 
 @get_route(
@@ -73,11 +49,10 @@ def create_task(
     tags=["task"],
 )
 def get_task(user=Depends(get_current_user_or_anonymous), task_id: str = Path(...)):
-    tasks = get_tasks_for_user(user.id)
-    for t in tasks:
-        if t.id == task_id:
-            return TaskResponse(task=t)
-    raise HTTPException(status_code=404, detail="Task not found")
+    task = TaskRepository.get_task_by_id(user.id, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return TaskResponse(task=task)
 
 
 @put_route(

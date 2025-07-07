@@ -21,9 +21,19 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def get_database_name():
+    """Get database name based on environment"""
+    env = os.getenv("ENVIRONMENT", "development")
+    if env == "test":
+        return "tingmate_test"
+    return settings.db_name
+
+
 def create_database():
     """Create the database if it doesn't exist"""
     try:
+        db_name = get_database_name()
+
         # Connect to MySQL server (without specifying database)
         connection = mysql.connector.connect(
             host=settings.db_host,
@@ -37,9 +47,9 @@ def create_database():
 
         # Create database if it doesn't exist
         cursor.execute(
-            f"CREATE DATABASE IF NOT EXISTS {settings.db_name} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"  # noqa: E501
+            f"CREATE DATABASE IF NOT EXISTS {db_name} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"  # noqa: E501
         )
-        logger.info(f"Database '{settings.db_name}' created or already exists")
+        logger.info(f"Database '{db_name}' created or already exists")
 
         cursor.close()
         connection.close()
