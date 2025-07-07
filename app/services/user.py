@@ -4,7 +4,7 @@ from typing import Literal
 import jwt
 
 from app.core.config import settings
-from app.repositories.user_repository import UserRepository
+from app.repositories.user import UserRepository
 from app.schemas.auth import RegisterRequest
 from app.schemas.user import User, UserDB
 

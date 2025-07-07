@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from app.repositories.task_repository import TaskRepository
+from app.repositories.task import TaskRepository
 from app.schemas.task import Task, TaskDB, UpdateTaskFields
 
 

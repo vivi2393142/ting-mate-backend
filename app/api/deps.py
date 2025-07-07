@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException, Query
 from fastapi.security import OAuth2PasswordBearer
 
-from app.repositories.user_repository import UserRepository
+from app.repositories.user import UserRepository
 from app.services.user import get_user, get_user_from_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)

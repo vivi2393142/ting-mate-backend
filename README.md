@@ -12,7 +12,7 @@ This repository contains the backend implementation, built with Python and FastA
   - `api/`: API route definitions
   - `core/`: Core settings, configuration, and utilities
   - `db/`: Database-related modules
-  - `repositories/`: Data access layer (SQL operations, e.g. user_repository.py)
+  - `repositories/`: Data access layer (SQL operations, e.g. user.py, task.py)
   - `schemas/`: Data schemas
   - `services/`: Business logic and service layer
   - `main.py`: Application entry point

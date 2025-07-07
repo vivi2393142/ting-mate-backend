@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import get_current_user
 from app.core.api_decorator import get_route
-from app.repositories.user_repository import UserRepository
+from app.repositories.user import UserRepository
 from app.schemas.user import User
 from app.services.user import get_user
 

@@ -46,7 +46,8 @@ class TaskRepository:
             insert_sql = """
             INSERT INTO tasks (
                 id, user_id, title, icon, reminder_hour, reminder_minute,
-                recurrence_interval, recurrence_unit, recurrence_days_of_week, recurrence_days_of_month,
+                recurrence_interval, recurrence_unit, 
+                recurrence_days_of_week, recurrence_days_of_month,
                 completed, created_by, updated_by
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)

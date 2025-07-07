@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path
 
 from app.api.deps import get_current_user_or_anonymous
 from app.core.api_decorator import get_route, post_route, put_route
-from app.repositories.task_repository import TaskRepository
+from app.repositories.task import TaskRepository
 from app.schemas.task import (
     CreateTaskRequest,
     TaskListResponse,
