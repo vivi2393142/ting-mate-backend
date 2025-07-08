@@ -1,12 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Depends, HTTPException
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user_or_create_anonymous
 from app.core.api_decorator import get_route
 from app.repositories.user import UserRepository
 from app.schemas.user import User
 from app.services.user import get_user
-
-router = APIRouter()
 
 
 @get_route(
@@ -16,7 +14,7 @@ router = APIRouter()
     response_model=User,
     tags=["user"],
 )
-def get_current_user_api(user=Depends(get_current_user)):
+def get_current_user_api(user: User = Depends(get_current_user_or_create_anonymous)):
     return user
 
 

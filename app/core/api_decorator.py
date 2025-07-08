@@ -23,48 +23,90 @@ def api_route(
     tags: List[str] = None,
     status_code: int = 200,
 ):
+    import inspect
+
     def decorator(func):
         if not summary:
             raise ValueError(f"API {path} must provide summary")
         if not description:
             raise ValueError(f"API {path} must provide description")
 
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            try:
-                logger.info(f"API called: {method} {path}")
-                result = func(*args, **kwargs)
-                if not isinstance(result, BaseModel):
-                    if isinstance(result, dict):
-                        result = BaseResponse(
-                            message="Operation successful", data=result
-                        )
-                    else:
-                        result = BaseResponse(
-                            message="Operation successful", data={"result": result}
-                        )
-                logger.info(f"API success: {method} {path}")
-                return result
-            except HTTPException as e:
-                logger.warning(f"HTTP error in {path}: {e.detail}")
-                raise
-            except ValueError as e:
-                logger.error(f"Business logic error in {path}: {str(e)}")
-                raise HTTPException(status_code=400, detail=str(e))
-            except Exception as e:
-                logger.error(f"Unexpected error in {path}: {str(e)}")
-                raise HTTPException(status_code=500, detail="Internal server error")
+        if inspect.iscoroutinefunction(func):
 
-        wrapper._route_config = {
-            "path": path,
-            "method": method,
-            "response_model": response_model,
-            "summary": summary,
-            "description": description,
-            "tags": tags or [],
-            "status_code": status_code,
-        }
-        return wrapper
+            @wraps(func)
+            async def wrapper(*args, **kwargs):
+                try:
+                    logger.info(f"API called: {method} {path}")
+                    result = await func(*args, **kwargs)
+                    if not isinstance(result, BaseModel):
+                        if isinstance(result, dict):
+                            result = BaseResponse(
+                                message="Operation successful", data=result
+                            )
+                        else:
+                            result = BaseResponse(
+                                message="Operation successful", data={"result": result}
+                            )
+                    logger.info(f"API success: {method} {path}")
+                    return result
+                except HTTPException as e:
+                    logger.warning(f"HTTP error in {path}: {e.detail}")
+                    raise
+                except ValueError as e:
+                    logger.error(f"Business logic error in {path}: {str(e)}")
+                    raise HTTPException(status_code=400, detail=str(e))
+                except Exception as e:
+                    logger.error(f"Unexpected error in {path}: {str(e)}")
+                    raise HTTPException(status_code=500, detail="Internal server error")
+
+            wrapper._route_config = {
+                "path": path,
+                "method": method,
+                "response_model": response_model,
+                "summary": summary,
+                "description": description,
+                "tags": tags or [],
+                "status_code": status_code,
+            }
+            return wrapper
+        else:
+
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                try:
+                    logger.info(f"API called: {method} {path}")
+                    result = func(*args, **kwargs)
+                    if not isinstance(result, BaseModel):
+                        if isinstance(result, dict):
+                            result = BaseResponse(
+                                message="Operation successful", data=result
+                            )
+                        else:
+                            result = BaseResponse(
+                                message="Operation successful", data={"result": result}
+                            )
+                    logger.info(f"API success: {method} {path}")
+                    return result
+                except HTTPException as e:
+                    logger.warning(f"HTTP error in {path}: {e.detail}")
+                    raise
+                except ValueError as e:
+                    logger.error(f"Business logic error in {path}: {str(e)}")
+                    raise HTTPException(status_code=400, detail=str(e))
+                except Exception as e:
+                    logger.error(f"Unexpected error in {path}: {str(e)}")
+                    raise HTTPException(status_code=500, detail="Internal server error")
+
+            wrapper._route_config = {
+                "path": path,
+                "method": method,
+                "response_model": response_model,
+                "summary": summary,
+                "description": description,
+                "tags": tags or [],
+                "status_code": status_code,
+            }
+            return wrapper
 
     return decorator
 

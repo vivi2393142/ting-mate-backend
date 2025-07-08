@@ -20,8 +20,8 @@ class RecurrenceRule(BaseModel):
         description="Number of units between recurrences, should be greater than 0",
     )
     unit: RecurrenceUnit
-    daysOfWeek: Optional[List[DayOfWeek]] = None  # 0=Monday, 6=Sunday
-    daysOfMonth: Optional[List[DayOfMonth]] = None
+    days_of_week: Optional[List[DayOfWeek]] = None  # 0=Monday, 6=Sunday
+    days_of_month: Optional[List[DayOfMonth]] = None
 
 
 class ReminderTime(BaseModel):
@@ -33,13 +33,15 @@ class Task(BaseModel):
     id: str
     title: str
     icon: str  # emoji
-    reminderTime: ReminderTime
+    reminder_time: ReminderTime
     recurrence: Optional[RecurrenceRule] = None
     completed: bool
-    createdAt: datetime  # ISO timestamp
-    updatedAt: datetime  # ISO timestamp
-    completedAt: Optional[datetime] = None  # ISO timestamp
-    completedBy: Optional[str] = None  # user id
+    created_at: datetime
+    created_by: str  # user id
+    updated_at: datetime
+    updated_by: str  # user id
+    completed_at: Optional[datetime] = None
+    completed_by: Optional[str] = None  # user id
 
 
 class TaskDB(Task):
@@ -49,7 +51,7 @@ class TaskDB(Task):
 class UpdateTaskFields(BaseModel):
     title: Optional[str] = None
     icon: Optional[str] = None
-    reminderTime: Optional[ReminderTime] = None
+    reminder_time: Optional[ReminderTime] = None
     recurrence: Optional[RecurrenceRule] = None
     completed: Optional[bool] = None
 
@@ -66,7 +68,7 @@ class UpdateTaskStatusRequest(BaseModel):
 class CreateTaskRequest(BaseModel):
     title: str
     icon: str
-    reminderTime: ReminderTime
+    reminder_time: ReminderTime
     recurrence: Optional[RecurrenceRule] = None
 
 

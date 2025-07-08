@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import Depends, HTTPException, Path
 
-from app.api.deps import get_current_user_or_anonymous
+from app.api.deps import get_current_user_or_create_anonymous
 from app.core.api_decorator import get_route, post_route, put_route
 from app.repositories.task import TaskRepository
 from app.schemas.task import (
@@ -10,9 +10,8 @@ from app.schemas.task import (
     UpdateTaskFields,
     UpdateTaskStatusRequest,
 )
+from app.schemas.user import User
 from app.services.task import get_tasks_for_user, update_task, update_task_status
-
-router = APIRouter()
 
 
 @get_route(
@@ -22,7 +21,7 @@ router = APIRouter()
     response_model=TaskListResponse,
     tags=["task"],
 )
-def get_tasks(user=Depends(get_current_user_or_anonymous)):
+def get_tasks(user: User = Depends(get_current_user_or_create_anonymous)):
     tasks = get_tasks_for_user(user.id)
     return TaskListResponse(tasks=tasks)
 
@@ -35,7 +34,8 @@ def get_tasks(user=Depends(get_current_user_or_anonymous)):
     tags=["task"],
 )
 def create_task(
-    user=Depends(get_current_user_or_anonymous), req: CreateTaskRequest = None
+    user: User = Depends(get_current_user_or_create_anonymous),
+    req: CreateTaskRequest = None,
 ):
     task = TaskRepository.create_task(user.id, req)
     return TaskResponse(task=task)
@@ -48,7 +48,9 @@ def create_task(
     response_model=TaskResponse,
     tags=["task"],
 )
-def get_task(user=Depends(get_current_user_or_anonymous), task_id: str = Path(...)):
+def get_task(
+    user: User = Depends(get_current_user_or_create_anonymous), task_id: str = Path(...)
+):
     task = TaskRepository.get_task_by_id(user.id, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -63,7 +65,7 @@ def get_task(user=Depends(get_current_user_or_anonymous), task_id: str = Path(..
     tags=["task"],
 )
 def update_task_api(
-    user=Depends(get_current_user_or_anonymous),
+    user: User = Depends(get_current_user_or_create_anonymous),
     task_id: str = Path(...),
     updates: UpdateTaskFields = None,
 ):
@@ -81,7 +83,7 @@ def update_task_api(
     tags=["task"],
 )
 def update_task_status_api(
-    user=Depends(get_current_user_or_anonymous),
+    user: User = Depends(get_current_user_or_create_anonymous),
     task_id: str = Path(...),
     status: UpdateTaskStatusRequest = None,
 ):

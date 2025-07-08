@@ -2,8 +2,9 @@
 User repository - handles all database operations for users
 """
 
-import uuid
 from typing import Literal, Optional
+
+from nanoid import generate
 
 from app.core.database import execute_query, execute_update
 from app.schemas.user import User, UserDB
@@ -17,8 +18,8 @@ class UserRepository:
     def create_user(user_create) -> User:
         """Create a new user in database"""
         try:
-            # Generate UUID for new user
-            user_id = str(uuid.uuid4())
+            # Generate nanoid for new user
+            user_id = generate()
 
             # Hash password
             hashed_password = get_password_hash(user_create.password)
@@ -51,6 +52,47 @@ class UserRepository:
 
         except Exception as e:
             raise ValueError(f"Failed to create user: {str(e)}")
+
+    @staticmethod
+    def create_anonymous_user(user_data: dict) -> User:
+        """Create a new anonymous user in database"""
+        try:
+            # Generate nanoid for new user
+            user_id = generate()
+
+            # Insert anonymous user into database
+            insert_sql = """
+            INSERT INTO users (id, email, hashed_password, anonymous_id)
+            VALUES (%s, %s, %s, %s)
+            """
+
+            execute_update(
+                insert_sql,
+                (
+                    user_id,
+                    user_data["email"],
+                    user_data["hashed_password"],
+                    user_data["anonymous_id"],
+                ),
+            )
+
+            # Create user settings
+            settings_sql = """
+            INSERT INTO user_settings (user_id, text_size, display_mode)
+            VALUES (%s, %s, %s)
+            """
+
+            execute_update(settings_sql, (user_id, "STANDARD", "FULL"))
+
+            # Return user object
+            return User(
+                id=user_id,
+                email=user_data["email"],
+                anonymous_id=user_data["anonymous_id"],
+            )
+
+        except Exception as e:
+            raise ValueError(f"Failed to create anonymous user: {str(e)}")
 
     @staticmethod
     def get_user(

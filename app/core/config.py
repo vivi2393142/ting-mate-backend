@@ -36,11 +36,9 @@ class Settings(BaseSettings):
     speech_to_text_encoding: str = "LINEAR16"
     speech_to_text_sample_rate_hertz: int = 16000
 
-    # Vertex AI (Gemini)
-    vertex_ai_location: str = "us-central1"
-    vertex_ai_model_name: str = "gemini-1.5-flash"
-    vertex_ai_max_tokens: int = 1024
-    vertex_ai_temperature: float = 0.1
+    # Gemini (LLM)
+    gemini_model_name: str = ""
+    gemini_api_key: str = ""
 
     model_config = {
         "env_file": ".env",

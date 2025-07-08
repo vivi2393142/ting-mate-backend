@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 import jwt
+from nanoid import generate
 
 from app.core.config import settings
 from app.repositories.user import UserRepository
@@ -43,6 +44,23 @@ def get_user(
     value: str, by: Literal["id", "email", "anonymous_id"] = "id"
 ) -> UserDB | None:
     return UserRepository.get_user(value, by)
+
+
+def create_anonymous_user(anonymous_id: str = None) -> User:
+    """Create a new anonymous user"""
+    if not anonymous_id:
+        anonymous_id = generate()
+
+    # Create anonymous user in database
+    user_data = {
+        "anonymous_id": anonymous_id,
+        "email": None,
+        "hashed_password": None,
+        "is_active": True,
+        "is_anonymous": True,
+    }
+
+    return UserRepository.create_anonymous_user(user_data)
 
 
 def get_user_from_token(token: str) -> User | None:

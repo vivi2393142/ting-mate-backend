@@ -1,6 +1,5 @@
-import uuid
-
 from fastapi import status
+from nanoid import generate
 
 
 class TestRegister:
@@ -9,7 +8,7 @@ class TestRegister:
     def test_register_success(self, client):
         """Test successful user registration with unique email."""
         # Generate unique email to avoid conflicts
-        unique_email = f"test_{uuid.uuid4().hex[:8]}@example.com"
+        unique_email = f"test_{generate(size=8)}@example.com"
         user_data = {
             "email": unique_email,
             "password": "test123456",
@@ -28,7 +27,7 @@ class TestRegister:
     def test_register_duplicate_email(self, client):
         """Test registration with duplicate email."""
         # First registration
-        unique_email = f"test_{uuid.uuid4().hex[:8]}@example.com"
+        unique_email = f"test_{generate(size=8)}@example.com"
         user_data = {
             "email": unique_email,
             "password": "test123456",
@@ -56,7 +55,7 @@ class TestRegister:
 
     def test_register_short_password(self, client):
         """Test registration with password too short."""
-        unique_email = f"test_{uuid.uuid4().hex[:8]}@example.com"
+        unique_email = f"test_{generate(size=8)}@example.com"
         user_data = {"email": unique_email, "password": "123", "anonymous_id": None}
 
         response = client.post("/auth/register", json=user_data)
@@ -69,7 +68,7 @@ class TestLogin:
     def test_login_success(self, client):
         """Test successful login."""
         # First register a user
-        unique_email = f"test_{uuid.uuid4().hex[:8]}@example.com"
+        unique_email = f"test_{generate(size=8)}@example.com"
         user_data = {
             "email": unique_email,
             "password": "test123456",
@@ -99,7 +98,7 @@ class TestLogin:
     def test_login_wrong_password(self, client):
         """Test login with existing user but wrong password."""
         # First register a user
-        unique_email = f"test_{uuid.uuid4().hex[:8]}@example.com"
+        unique_email = f"test_{generate(size=8)}@example.com"
         user_data = {
             "email": unique_email,
             "password": "test123456",

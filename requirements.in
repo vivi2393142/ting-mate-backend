@@ -7,4 +7,5 @@ passlib[bcrypt]
 pyjwt
 mysql-connector-python
 google-cloud-speech
-google-cloud-aiplatform
+google-genai
+nanoid

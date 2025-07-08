@@ -1,6 +1,5 @@
-import uuid
-
 from fastapi import status
+from nanoid import generate
 
 
 class TestGetCurrentUser:
@@ -9,7 +8,7 @@ class TestGetCurrentUser:
     def test_get_current_user_success(self, client):
         """Test successful retrieval of current user with valid token."""
         # First register a user
-        unique_email = f"test_{uuid.uuid4().hex[:8]}@example.com"
+        unique_email = f"test_{generate(size=8)}@example.com"
         user_data = {
             "email": unique_email,
             "password": "test123456",
@@ -62,7 +61,7 @@ class TestGetUserByEmail:
     def test_get_user_by_email_success(self, client):
         """Test successful retrieval of user by email."""
         # First register a user
-        unique_email = f"test_{uuid.uuid4().hex[:8]}@example.com"
+        unique_email = f"test_{generate(size=8)}@example.com"
         user_data = {
             "email": unique_email,
             "password": "test123456",
@@ -83,7 +82,7 @@ class TestGetUserByEmail:
 
     def test_get_user_by_email_not_found(self, client):
         """Test getting user by non-existent email."""
-        non_existent_email = f"nonexistent_{uuid.uuid4().hex[:8]}@example.com"
+        non_existent_email = f"nonexistent_{generate(size=8)}@example.com"
         response = client.get(f"/user/{non_existent_email}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert "User not found" in response.json()["detail"]
@@ -113,7 +112,7 @@ class TestGetUserByEmail:
     def test_get_user_by_email_case_insensitive(self, client):
         """Test getting user with different email case (should be case-insensitive)."""
         # First register a user with lowercase email
-        unique_email = f"test_{uuid.uuid4().hex[:8]}@example.com"
+        unique_email = f"test_{generate(size=8)}@example.com"
         user_data = {
             "email": unique_email,
             "password": "test123456",

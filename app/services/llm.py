@@ -1,229 +1,313 @@
 import json
 import logging
-import uuid
-from typing import Any, Dict, Optional
+from enum import Enum
+from typing import List, Optional
 
-from google.cloud import aiplatform
-from vertexai.generative_models import GenerativeModel
+from google import genai
+from google.genai import types
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
+from app.models.llm_log import LLMLogCreate
+from app.repositories.llm_log import LLMLogRepository
+from app.schemas.task import RecurrenceUnit
 
 logger = logging.getLogger(__name__)
+
+
+class Status(str, Enum):
+    CONFIRMED = "CONFIRMED"
+    INCOMPLETE = "INCOMPLETE"
+    FAILED = "FAILED"
+
+
+# TODO: Add QUERY_TASK for querying task status or information
+# Examples: "show my tasks", "what tasks do I have", "list reminders"
+class IntentType(str, Enum):
+    CREATE_TASK = "CREATE_TASK"
+    UPDATE_TASK = "UPDATE_TASK"
+    DELETE_TASK = "DELETE_TASK"
+    UNKNOWN = "UNKNOWN"
+
+
+class IntentDetectionResult(BaseModel):
+    intent_type: IntentType
+
+
+class BaseTaskSlot(BaseModel):
+    title: Optional[str] = None
+    reminder_hour: Optional[int] = Field(None, ge=0, le=23)
+    reminder_minute: Optional[int] = Field(None, ge=0, le=59)
+    recurrence_unit: Optional[RecurrenceUnit] = Field(None)
+    recurrence_interval: Optional[int] = Field(
+        None, description="Must be between 1 and 30."
+    )
+    recurrence_days_of_week: Optional[List[int]] = Field(
+        None, description="List of days of week for recurrence. 0=Monday, 6=Sunday."
+    )
+    recurrence_days_of_month: Optional[List[int]] = Field(
+        None, description="List of days of month for recurrence. 1-31."
+    )
+
+
+class CreateTaskSlot(BaseTaskSlot):
+    pass
+
+
+class UpdateTaskSlot(BaseTaskSlot):
+    task_id: Optional[str] = None
+
+
+class CreateTaskResult(BaseModel):
+    status: Status
+    further_question: Optional[str] = None
+    result: CreateTaskSlot
+
+
+class UpdateTaskResult(BaseModel):
+    status: Status
+    further_question: Optional[str] = None
+    result: UpdateTaskSlot
+
+
+class TaskCandidate(BaseModel):
+    task_id: str
+    title: Optional[str] = None
+
+
+class DeleteTaskResult(BaseModel):
+    status: Status
+    further_question: Optional[str] = None
+    result: Optional[str] = None
+    task_candidate_id_list: Optional[List[str]]
 
 
 class LLMService:
     """Google Gemini LLM service"""
 
+    # Common prompt components
+    BASE_ROLE = "You are a voice assistant that helps users manage to-do tasks."
+    SCHEMA_INSTRUCTION = (
+        "Do not include any schema-related properties such as type, minimum, maximum, etc."
+        "Only return a JSON object without any other text."
+    )
+    RECURRENCE_EXAMPLES = (
+        "For recurrence rules, use these examples:\n"
+        "- 'everyday' -> interval=1, unit=day\n"
+        "- 'every week' -> interval=1, unit=week\n"
+        "- 'every Tuesday and Sunday' -> interval=1, unit=week, days_of_week=[1,6]\n"
+        "- 'every 2 weeks on Friday' -> interval=2, unit=week, days_of_week=[1,4]\n"
+        "- 'every month on the 15th' -> interval=1, unit=month, days_of_month=[15]\n"
+        "- 'every 3 months on the 1st and 15th' -> interval=3, unit=month, days_of_month=[1,15]\n"
+    )
+    TASK_SELECTION_BASE = (
+        "Given 'user_input', 'task_candidates' and 'previous_result', "
+        "identify which task the user wants to {action}. "
+        "If you can determine a single task, set status to CONFIRMED and return the selected 'task_id' in result. "
+        "If you cannot determine a single task, set status to INCOMPLETE, provide a 'further_question', and "
+        "return a list of possible candidates' task_id. "
+    )
+
     def __init__(self):
-        # Only initialize Google Cloud services if not in test environment
-        if settings.environment != "test":
-            # Initialize Vertex AI
-            aiplatform.init(
-                project=settings.google_cloud_project_id,
-                location=settings.vertex_ai_location,
-            )
+        self.intent_prompt = (
+            f"{self.BASE_ROLE} "
+            "Classify the user's intent into one of these categories:\n"
+            "- CREATE_TASK: User wants to create a new task "
+            "(e.g., 'remind me to', 'create a task', 'add a reminder')\n"
+            "- UPDATE_TASK: User wants to modify an existing task "
+            "(e.g., 'change the time', 'mark as done', 'update the title', 'complete this task')\n"
+            "- DELETE_TASK: User wants to remove a task "
+            "(e.g., 'delete this', 'remove the task')\n"
+            "- UNKNOWN: Cannot determine the intent clearly\n"
+            f"{self.SCHEMA_INSTRUCTION} "
+            "user_input: {user_input}"
+        )
+        self.create_task_prompt = (
+            f"{self.BASE_ROLE} "
+            "Extract all required fields for creating a task. "
+            "The user_input is the latest user input in text. "
+            "'previous_response' is the last LLM output (if any); "
+            "use both 'previous_response' and 'user_input' to update or complete the result. "
+            "The required fields are: 'title', 'reminder_hour'. "
+            "- If any required field is missing, set status to INCOMPLETE and provide a further_question. "
+            "- If all required fields are present, set status to CONFIRMED and no further_question. "
+            "- If fail to continue, set status to FAILED and no further_question. "
+            "- If no 'reminder_minute' is provided, set it to 0."
+            f"{self.SCHEMA_INSTRUCTION}\n"
+            f"{self.RECURRENCE_EXAMPLES}"
+            "user_input: {user_input}\n"
+            "previous_response: {previous_response}\n"
+        )
+        self.update_task_prompt = (
+            f"{self.BASE_ROLE} "
+            "Extract all required fields for updating a task. "
+            "The user_input is the latest user input in text. "
+            "'previous_response' is the last LLM output (if any); "
+            "use both 'previous_response' and 'user_input' to update or complete the result. "
+            "The required field is: 'task_id' and one of any updated fields. "
+            "- If task_id is missing, set status to INCOMPLETE and provide a further_question. "
+            "- If task_id is present and none of updated fields is present, set status to INCOMPLETE and provide a 'further_question'. "  # noqa: E501
+            "- If task_id is present and one of any updated fields is present, set status to CONFIRMED and no 'further_question'. "  # noqa: E501
+            "- If fail to continue, set status to FAILED and no further_question. "
+            f"{self.SCHEMA_INSTRUCTION}\n"
+            f"{self.RECURRENCE_EXAMPLES}"
+            "active_tasks: {active_tasks}\n"
+            "user_input: {user_input}\n"
+            "previous_response: {previous_response}\n"
+        )
+        self.delete_task_prompt = (
+            f"{self.BASE_ROLE} "
+            f"{self.TASK_SELECTION_BASE.format(action='delete')} "
+            f"{self.SCHEMA_INSTRUCTION}\n"
+            "task_candidates: {task_candidates}\n"
+            "user_input: {user_input}\n"
+            "previous_result: {previous_result}\n"
+        )
 
-            # Create Gemini model
-            self.model = GenerativeModel(settings.vertex_ai_model_name)
-        else:
-            # In test environment, set model to None
-            self.model = None
-            logger.info(
-                "LLM service initialized in test mode - Google Cloud services disabled"
-            )
+        self.intent_schema = IntentDetectionResult.model_json_schema()
+        self.create_task_schema = CreateTaskResult.model_json_schema()
+        self.update_task_schema = UpdateTaskResult.model_json_schema()
+        self.delete_task_schema = DeleteTaskResult.model_json_schema()
 
-        # Default prompt template
-        self.base_prompt = """
-You are an assistant helping users manage daily tasks through natural language voice commands.
-
-You can understand the user's intent, extract required parameters, and map the command to one of the predefined structured task operations.
-
-There are five available task operations:
-1. CREATE a task
-2. DELETE a task
-3. UPDATE a task
-4. COMPLETE a task
-5. QUERY tasks
-
-Each operation has a set of required and optional parameters. If any required parameter is missing, ask follow-up questions to clarify. Always use polite and concise language for follow-ups. Some actions require confirmation before execution — in that case, wait for confirmation before responding with the final answer.
-
-Respond in this format:
-{
-  "conversationId": "string",
-  "intentId": "CREATE_TASK|DELETE_TASK|UPDATE_TASK|COMPLETE_TASK|QUERY_TASKS|UNKNOWN",
-  "status": "confirmed|incomplete|unknown",
-  "parameters": { ... },
-  "message": "User-facing response"
-}
-
-The intentId and parameter definitions are as follows:
-
-CREATE_TASK:
-  - title (required): string
-  - description (optional): string
-  - due_date (optional): string (YYYY-MM-DD format)
-  - priority (optional): "low"|"medium"|"high"
-
-DELETE_TASK:
-  - task_id (required): string
-  - title (optional): string (for confirmation)
-
-UPDATE_TASK:
-  - task_id (required): string
-  - title (optional): string
-  - description (optional): string
-  - due_date (optional): string (YYYY-MM-DD format)
-  - priority (optional): "low"|"medium"|"high"
-  - status (optional): "pending"|"in_progress"|"completed"
-
-COMPLETE_TASK:
-  - task_id (required): string
-  - title (optional): string (for confirmation)
-
-QUERY_TASKS:
-  - status (optional): "pending"|"in_progress"|"completed"
-  - priority (optional): "low"|"medium"|"high"
-  - limit (optional): number (default: 10)
-
-Only respond with the appropriate action based on the user's intent and fill in as many parameters as possible. Do not make assumptions. Ask when uncertain.
-
-User input: {user_input}
-"""
-
-    async def process_voice_command(
-        self, user_input: str, conversation_id: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """
-        Process voice command and return structured response
-
-        Args:
-            user_input: User's speech-to-text content
-            conversation_id: Conversation ID, auto-generated if not provided
-
-        Returns:
-            Structured response dictionary
-        """
+    def generate_content(
+        self,
+        content: str,
+        schema: dict,
+        user_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,
+    ) -> str:
         try:
-            # Generate conversation ID
-            if not conversation_id:
-                conversation_id = str(uuid.uuid4())
-
-            # In test environment, return mock response
-            if settings.environment == "test":
-                logger.info(f"Test mode: Mock LLM response for input: {user_input}")
-                return {
-                    "conversationId": conversation_id,
-                    "intentId": "CREATE_TASK",
-                    "status": "confirmed",
-                    "parameters": {
-                        "title": "Test task",
-                        "description": "This is a test task created in test mode",
-                    },
-                    "message": "Test task created successfully",
-                }
-
-            # Build complete prompt
-            full_prompt = self.base_prompt.format(user_input=user_input)
-
-            # Call Gemini API
-            response = self.model.generate_content(
-                full_prompt,
-                generation_config={
-                    "max_output_tokens": settings.vertex_ai_max_tokens,
-                    "temperature": settings.vertex_ai_temperature,
-                },
+            client = genai.Client(api_key=settings.gemini_api_key)
+            response = client.models.generate_content(
+                model=settings.gemini_model_name,
+                contents=content,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=schema,
+                ),
             )
 
-            # Parse response
-            response_text = response.text.strip()
-            logger.info(f"LLM response: {response_text}")
+            # Save successful conversation to database
+            self._save_conversation(
+                user_id=user_id,
+                conversation_id=conversation_id,
+                input_text=content,
+                output_text=response.text,
+            )
 
-            # Try to parse JSON
-            try:
-                result = json.loads(response_text)
+            return response.text
 
-                # Ensure required fields exist
-                if "conversationId" not in result:
-                    result["conversationId"] = conversation_id
+        except Exception:
+            # Save failed conversation to database (output_text will be NULL)
+            self._save_conversation(
+                user_id=user_id,
+                conversation_id=conversation_id,
+                input_text=content,
+                output_text=None,  # NULL for failed calls
+            )
 
-                return result
+            # Re-raise the exception to maintain original behavior
+            raise
 
-            except json.JSONDecodeError:
-                logger.error(f"Cannot parse LLM response as JSON: {response_text}")
-                return {
-                    "conversationId": conversation_id,
-                    "intentId": "UNKNOWN",
-                    "status": "unknown",
-                    "parameters": {},
-                    "message": "Sorry, I cannot understand your command. Please try again.",
-                }
+    def _save_conversation(
+        self,
+        user_id: Optional[str],
+        conversation_id: Optional[str],
+        input_text: str,
+        output_text: Optional[str],
+    ):
+        """Save LLM log to database"""
+        try:
+            log = LLMLogCreate(
+                user_id=user_id,
+                conversation_id=conversation_id,
+                input_text=input_text,
+                output_text=output_text,
+            )
+            LLMLogRepository.create_log(log)
 
         except Exception as e:
-            logger.error(f"LLM processing failed: {str(e)}")
-            return {
-                "conversationId": conversation_id or str(uuid.uuid4()),
-                "intentId": "UNKNOWN",
-                "status": "unknown",
-                "parameters": {},
-                "message": "An error occurred while processing your command. Please try again later.",
-            }
+            logger.error(f"Failed to save LLM log: {e}")
+            # Don't fail the main operation if saving fails
 
-    def extract_task_parameters(self, llm_response: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Extract task parameters from LLM response
+    async def detect_intent(
+        self,
+        user_input: str,
+        user_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,
+    ) -> IntentType:
+        prompt = self.intent_prompt.format(user_input=user_input)
+        response_text = self.generate_content(
+            prompt,
+            self.intent_schema,
+            user_id=user_id,
+            conversation_id=conversation_id,
+        )
+        result = json.loads(response_text)
+        return IntentType(result["intent_type"])
 
-        Args:
-            llm_response: LLM response dictionary
+    async def extract_create_task(
+        self,
+        user_input: str,
+        previous_response: Optional[str],
+        user_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,
+    ) -> CreateTaskResult:
+        prompt = self.create_task_prompt.format(
+            user_input=user_input, previous_response=previous_response
+        )
+        response_text = self.generate_content(
+            prompt,
+            self.create_task_schema,
+            user_id=user_id,
+            conversation_id=conversation_id,
+        )
+        result = json.loads(response_text)
+        return CreateTaskResult(**result)
 
-        Returns:
-            Task parameters dictionary
-        """
-        intent_id = llm_response.get("intentId", "UNKNOWN")
-        parameters = llm_response.get("parameters", {})
+    async def extract_update_task(
+        self,
+        active_tasks: str,
+        user_input: str,
+        previous_response: Optional[str],
+        user_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,
+    ) -> UpdateTaskResult:
+        prompt = self.update_task_prompt.format(
+            active_tasks=active_tasks,
+            user_input=user_input,
+            previous_response=previous_response,
+        )
+        response_text = self.generate_content(
+            prompt,
+            self.update_task_schema,
+            user_id=user_id,
+            conversation_id=conversation_id,
+        )
+        result = json.loads(response_text)
+        return UpdateTaskResult(**result)
 
-        # Process parameters based on different intents
-        if intent_id == "CREATE_TASK":
-            return {
-                "action": "create",
-                "title": parameters.get("title"),
-                "description": parameters.get("description"),
-                "due_date": parameters.get("due_date"),
-                "priority": parameters.get("priority", "medium"),
-            }
-        elif intent_id == "DELETE_TASK":
-            return {
-                "action": "delete",
-                "task_id": parameters.get("task_id"),
-                "title": parameters.get("title"),
-            }
-        elif intent_id == "UPDATE_TASK":
-            return {
-                "action": "update",
-                "task_id": parameters.get("task_id"),
-                "title": parameters.get("title"),
-                "description": parameters.get("description"),
-                "due_date": parameters.get("due_date"),
-                "priority": parameters.get("priority"),
-                "status": parameters.get("status"),
-            }
-        elif intent_id == "COMPLETE_TASK":
-            return {
-                "action": "complete",
-                "task_id": parameters.get("task_id"),
-                "title": parameters.get("title"),
-            }
-        elif intent_id == "QUERY_TASKS":
-            return {
-                "action": "query",
-                "status": parameters.get("status"),
-                "priority": parameters.get("priority"),
-                "limit": parameters.get("limit", 10),
-            }
-        else:
-            return {
-                "action": "unknown",
-                "message": llm_response.get("message", "Cannot understand command"),
-            }
+    async def extract_delete_task(
+        self,
+        task_candidates: str,
+        user_input: str,
+        previous_response: Optional[str],
+        user_id: Optional[str] = None,
+        conversation_id: Optional[str] = None,
+    ) -> DeleteTaskResult:
+        prompt = self.delete_task_prompt.format(
+            task_candidates=task_candidates,
+            user_input=user_input,
+            previous_response=previous_response,
+        )
+        response_text = self.generate_content(
+            prompt,
+            self.delete_task_schema,
+            user_id=user_id,
+            conversation_id=conversation_id,
+        )
+        result = json.loads(response_text)
+        return DeleteTaskResult(**result)
 
 
 # Create global instance

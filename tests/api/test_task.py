@@ -1,13 +1,12 @@
-import uuid
-
 from fastapi import status
+from nanoid import generate
 
 
 class TestTaskAPI:
     """Test group for task API endpoints (CRUD, status, error, edge cases)."""
 
     def _register_and_login(self, client):
-        email = f"task_{uuid.uuid4().hex[:8]}@example.com"
+        email = f"task_{generate(size=8)}@example.com"
         password = "test123456"
         user_data = {"email": email, "password": password, "anonymous_id": None}
         reg = client.post("/auth/register", json=user_data)
@@ -24,7 +23,7 @@ class TestTaskAPI:
         req = {
             "title": title,
             "icon": icon,
-            "reminderTime": {"hour": 8, "minute": 0},
+            "reminder_time": {"hour": 8, "minute": 0},
             "recurrence": {"interval": 1, "unit": "DAY"},
         }
         resp = client.post("/tasks", json=req, headers=self._auth_headers(token))
@@ -71,7 +70,7 @@ class TestTaskAPI:
     def test_get_task_by_id_not_found(self, client):
         """Test getting a non-existent task by ID."""
         _, token = self._register_and_login(client)
-        fake_id = str(uuid.uuid4())
+        fake_id = generate()
         resp = client.get(f"/tasks/{fake_id}", headers=self._auth_headers(token))
         assert resp.status_code == status.HTTP_404_NOT_FOUND
         assert "Task not found" in resp.json()["detail"]
@@ -95,7 +94,7 @@ class TestTaskAPI:
         """Test updating a non-existent task."""
         _, token = self._register_and_login(client)
         updates = {"title": "Should not work"}
-        fake_id = str(uuid.uuid4())
+        fake_id = generate()
         resp = client.put(
             f"/tasks/{fake_id}", json=updates, headers=self._auth_headers(token)
         )
@@ -120,7 +119,7 @@ class TestTaskAPI:
         """Test updating status of a non-existent task."""
         _, token = self._register_and_login(client)
         status_req = {"completed": True}
-        fake_id = str(uuid.uuid4())
+        fake_id = generate()
         resp = client.put(
             f"/tasks/{fake_id}/status",
             json=status_req,
@@ -135,7 +134,7 @@ class TestTaskAPI:
         # Missing title
         req = {
             "icon": "💊",
-            "reminderTime": {"hour": 8, "minute": 0},
+            "reminder_time": {"hour": 8, "minute": 0},
             "recurrence": {"interval": 1, "unit": "DAY"},
         }
         resp = client.post("/tasks", json=req, headers=self._auth_headers(token))
@@ -161,7 +160,7 @@ class TestTaskAPI:
         # User B
         _, token_b = self._register_and_login(client)
         self._create_task(client, token_b, title="B's task")
-        # User A只能看到自己的
+        # User A should only see their own tasks
         resp_a = client.get("/tasks", headers=self._auth_headers(token_a))
         response_data_a = self._get_response_data(resp_a)
         tasks_a = [
@@ -174,7 +173,7 @@ class TestTaskAPI:
         ]
         assert "A's task" in tasks_a
         assert "B's task" not in tasks_a
-        # User B只能看到自己的
+        # User B can only see their own tasks
         resp_b = client.get("/tasks", headers=self._auth_headers(token_b))
         response_data_b = self._get_response_data(resp_b)
         tasks_b = [
@@ -194,7 +193,7 @@ class TestTaskAPI:
         req = {
             "title": "One-time task",
             "icon": "📝",
-            "reminderTime": {"hour": 10, "minute": 30},
+            "reminder_time": {"hour": 10, "minute": 30},
         }
         resp = client.post("/tasks", json=req, headers=self._auth_headers(token))
         assert resp.status_code == status.HTTP_200_OK

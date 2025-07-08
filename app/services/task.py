@@ -9,8 +9,22 @@ def taskdb_to_task(task: TaskDB) -> Task:
 
 
 def get_tasks_for_user(user_id: str) -> List[Task]:
-    """Get all tasks for a user from database"""
-    return TaskRepository.get_tasks_for_user(user_id)
+    """Get all tasks for a user from database, excluding overdue non-recurring tasks"""
+    from datetime import datetime
+
+    all_tasks = TaskRepository.get_tasks_for_user(user_id)
+    today = datetime.now().date()
+
+    filtered_tasks = []
+    for task in all_tasks:
+        # Always include recurring tasks
+        if task.recurrence is not None:
+            filtered_tasks.append(task)
+            continue
+        # Only include non-recurring tasks if created today
+        if hasattr(task, "created_at") and getattr(task, "created_at").date() == today:
+            filtered_tasks.append(task)
+    return filtered_tasks
 
 
 def add_task(user_id: str, task: TaskDB):

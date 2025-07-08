@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import HTTPException
 
 from app.core.api_decorator import post_route
 from app.schemas.auth import (
@@ -9,8 +9,6 @@ from app.schemas.auth import (
 )
 from app.services.security import create_access_token, verify_password
 from app.services.user import create_user, get_user
-
-router = APIRouter()
 
 
 @post_route(

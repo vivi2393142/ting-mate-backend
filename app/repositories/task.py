@@ -3,23 +3,24 @@ Task repository - handles all database operations for tasks
 """
 
 import json
-import uuid
 from datetime import datetime
 from typing import List, Optional
 
+from nanoid import generate
+
 from app.core.database import execute_query, execute_update
-from app.schemas.task import Task, TaskDB, UpdateTaskFields
+from app.schemas.task import CreateTaskRequest, Task, TaskDB, UpdateTaskFields
 
 
 class TaskRepository:
     """Repository for task data access operations"""
 
     @staticmethod
-    def create_task(user_id: str, task_create) -> Task:
+    def create_task(user_id: str, task_create: CreateTaskRequest) -> Task:
         """Create a new task in database"""
         try:
-            # Generate UUID for new task
-            task_id = str(uuid.uuid4())
+            # Generate nanoid for new task
+            task_id = generate()
             now = datetime.now()
 
             # Prepare recurrence data
@@ -32,13 +33,13 @@ class TaskRepository:
                 recurrence_interval = task_create.recurrence.interval
                 recurrence_unit = task_create.recurrence.unit.value
                 recurrence_days_of_week = (
-                    json.dumps(task_create.recurrence.daysOfWeek)
-                    if task_create.recurrence.daysOfWeek
+                    json.dumps(task_create.recurrence.days_of_week)
+                    if task_create.recurrence.days_of_week
                     else None
                 )
                 recurrence_days_of_month = (
-                    json.dumps(task_create.recurrence.daysOfMonth)
-                    if task_create.recurrence.daysOfMonth
+                    json.dumps(task_create.recurrence.days_of_month)
+                    if task_create.recurrence.days_of_month
                     else None
                 )
 
@@ -60,8 +61,8 @@ class TaskRepository:
                     user_id,
                     task_create.title,
                     task_create.icon,
-                    task_create.reminderTime.hour,
-                    task_create.reminderTime.minute,
+                    task_create.reminder_time.hour,
+                    task_create.reminder_time.minute,
                     recurrence_interval,
                     recurrence_unit,
                     recurrence_days_of_week,
@@ -77,13 +78,15 @@ class TaskRepository:
                 id=task_id,
                 title=task_create.title,
                 icon=task_create.icon,
-                reminderTime=task_create.reminderTime,
+                reminder_time=task_create.reminder_time,
                 recurrence=task_create.recurrence,
                 completed=False,
-                createdAt=now,
-                updatedAt=now,
-                completedAt=None,
-                completedBy=None,
+                created_at=now,
+                created_by=user_id,
+                updated_at=now,
+                updated_by=user_id,
+                completed_at=None,
+                completed_by=None,
             )
 
         except Exception as e:
@@ -156,11 +159,11 @@ class TaskRepository:
                 update_fields.append("icon = %s")
                 update_values.append(updates.icon)
 
-            if updates.reminderTime is not None:
+            if updates.reminder_time is not None:
                 update_fields.append("reminder_hour = %s")
                 update_fields.append("reminder_minute = %s")
                 update_values.extend(
-                    [updates.reminderTime.hour, updates.reminderTime.minute]
+                    [updates.reminder_time.hour, updates.reminder_time.minute]
                 )
 
             if updates.recurrence is not None:
@@ -174,13 +177,13 @@ class TaskRepository:
                             updates.recurrence.interval,
                             updates.recurrence.unit.value,
                             (
-                                json.dumps(updates.recurrence.daysOfWeek)
-                                if updates.recurrence.daysOfWeek
+                                json.dumps(updates.recurrence.days_of_week)
+                                if updates.recurrence.days_of_week
                                 else None
                             ),
                             (
-                                json.dumps(updates.recurrence.daysOfMonth)
-                                if updates.recurrence.daysOfMonth
+                                json.dumps(updates.recurrence.days_of_month)
+                                if updates.recurrence.days_of_month
                                 else None
                             ),
                         ]
@@ -282,23 +285,25 @@ class TaskRepository:
                 recurrence = RecurrenceRule(
                     interval=row["recurrence_interval"],
                     unit=RecurrenceUnit(row["recurrence_unit"]),
-                    daysOfWeek=days_of_week,
-                    daysOfMonth=days_of_month,
+                    days_of_week=days_of_week,
+                    days_of_month=days_of_month,
                 )
 
             return Task(
                 id=row["id"],
                 title=row["title"],
                 icon=row["icon"],
-                reminderTime=ReminderTime(
+                reminder_time=ReminderTime(
                     hour=row["reminder_hour"], minute=row["reminder_minute"]
                 ),
                 recurrence=recurrence,
                 completed=row["completed"],
-                createdAt=row["created_at"],
-                updatedAt=row["updated_at"],
-                completedAt=row.get("completed_at"),
-                completedBy=row.get("completed_by"),
+                created_at=row["created_at"],
+                created_by=row["created_by"],
+                updated_at=row["updated_at"],
+                updated_by=row["updated_by"],
+                completed_at=row.get("completed_at"),
+                completed_by=row.get("completed_by"),
             )
 
         except Exception as e:
@@ -312,11 +317,13 @@ class TaskRepository:
             id=taskdb.id,
             title=taskdb.title,
             icon=taskdb.icon,
-            reminderTime=taskdb.reminderTime,
+            reminder_time=taskdb.reminder_time,
             recurrence=taskdb.recurrence,
             completed=taskdb.completed,
-            createdAt=taskdb.createdAt,
-            updatedAt=taskdb.updatedAt,
-            completedAt=taskdb.completedAt,
-            completedBy=taskdb.completedBy,
+            created_at=taskdb.created_at,
+            created_by=taskdb.created_by,
+            updated_at=taskdb.updated_at,
+            updated_by=taskdb.updated_by,
+            completed_at=taskdb.completed_at,
+            completed_by=taskdb.completed_by,
         )

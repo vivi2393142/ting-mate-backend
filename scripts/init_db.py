@@ -137,6 +137,49 @@ def create_tables(engine=None):
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
 
+        # Create llm_logs table
+        llm_logs_table_sql = """
+        CREATE TABLE IF NOT EXISTS llm_logs (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            user_id VARCHAR(255) NULL COMMENT 'User ID (optional)',
+            conversation_id VARCHAR(255) NULL COMMENT 'Conversation ID (optional)',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            input_text TEXT NOT NULL COMMENT 'User input to LLM',
+            output_text TEXT NULL COMMENT 'LLM response (NULL if failed)',
+            INDEX idx_user_id (user_id),
+            INDEX idx_conversation_id (conversation_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+
+        # Create assistant_pending_tasks table
+        assistant_pending_tasks_table_sql = """
+        CREATE TABLE IF NOT EXISTS assistant_pending_tasks (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            conversation_id VARCHAR(255) NOT NULL,
+            user_id VARCHAR(36) NOT NULL,
+            intent_type ENUM('CREATE_TASK', 'UPDATE_TASK', 'DELETE_TASK') NOT NULL,
+            task_data JSON NOT NULL COMMENT 'Task data for the pending operation',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_conversation_id (conversation_id),
+            INDEX idx_user_id (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+
+        # Create assistant_conversations table
+        assistant_conversations_table_sql = """
+        CREATE TABLE IF NOT EXISTS assistant_conversations (
+            conversation_id VARCHAR(255) PRIMARY KEY,
+            user_id VARCHAR(36) NOT NULL,
+            intent_type VARCHAR(50) NULL,
+            llm_result JSON NULL,
+            turn_count INT DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_user_id (user_id),
+            INDEX idx_updated_at (updated_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+
         # Execute table creation
         execute_update(users_table_sql)
         logger.info("Users table created successfully")
@@ -149,6 +192,15 @@ def create_tables(engine=None):
 
         execute_update(activity_logs_table_sql)
         logger.info("Activity logs table created successfully")
+
+        execute_update(llm_logs_table_sql)
+        logger.info("LLM logs table created successfully")
+
+        execute_update(assistant_pending_tasks_table_sql)
+        logger.info("Assistant pending tasks table created successfully")
+
+        execute_update(assistant_conversations_table_sql)
+        logger.info("Assistant conversations table created successfully")
 
         return True
 
