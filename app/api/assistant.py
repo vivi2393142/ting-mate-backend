@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from typing import Optional
 
 from fastapi import Body, Depends, File, Form, HTTPException, UploadFile, status
@@ -24,12 +25,11 @@ from app.schemas.task import (
     UpdateTaskFields,
 )
 from app.schemas.user import User
-from app.services.llm import IntentType, LLMService, Status
+from app.services.llm import IntentType, Status, llm_service
+from app.services.speech import speech_service
 from app.services.task import get_tasks_for_user
 
 logger = logging.getLogger(__name__)
-
-llm_service = LLMService()
 
 # Maximum number of turns per conversation to prevent infinite loops
 MAX_CONVERSATION_TURNS = 5
@@ -406,16 +406,36 @@ async def voice_command(
     conversation_id: Optional[str] = Body(
         None, description="Conversation/session id for multi-turn context"
     ),
-    encoding: Optional[str] = Form("LINEAR16", description="Audio encoding format"),
+    encoding: Optional[str] = Form(
+        None, description="Audio encoding format (optional)"
+    ),
 ):
-    # TODO: Integrate Google Speech-to-Text here
-    # For now, return a placeholder response
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="TODO: Integrate Google Speech-to-Text service.",
-    )
+    """
+    Voice-based assistant command endpoint.
+    Converts audio to text, then runs the same logic as text_command.
+    """
+    try:
+        audio_content = await audio_file.read()
+        ext = (
+            os.path.splitext(audio_file.filename)[-1].replace(".", "").lower()
+            if audio_file.filename
+            else None
+        )
+        transcript = speech_service.transcribe_audio_content(
+            audio_content, file_format=ext
+        )
+        if not transcript:
+            raise HTTPException(
+                status_code=400, detail="Speech-to-text failed or no speech detected."
+            )
 
-    # Once speech-to-text is implemented, the flow would be:
-    # 1. Convert audio to text using Google Speech-to-Text
-    # 2. Use the same logic as text_command with the converted text
-    # 3. Return the same response format
+        # Call text_command to handle the transcript
+        return await text_command(
+            user=user,
+            user_input=transcript,
+            conversation_id=conversation_id,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error in voice command: {str(e)}")
