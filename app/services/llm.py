@@ -8,8 +8,8 @@ from google.genai import types
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
-from app.models.llm_log import LLMLogCreate
 from app.repositories.llm_log import LLMLogRepository
+from app.schemas.llm_log import LLMLogCreate
 from app.schemas.task import RecurrenceUnit
 
 logger = logging.getLogger(__name__)

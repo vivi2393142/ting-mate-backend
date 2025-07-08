@@ -22,19 +22,12 @@ class Settings(BaseSettings):
     api_reload: bool = True
 
     # Security
-    secret_key: str = "your_secret_key_here"
+    secret_key: str = ""
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
-    # Google Cloud
-    google_cloud_project_id: str = ""
-    google_cloud_credentials_file: str = ""
-    google_cloud_region: str = "us-central1"
-
     # Speech-to-Text
-    speech_to_text_language_code: str = "en-US"
-    speech_to_text_encoding: str = "LINEAR16"
-    speech_to_text_sample_rate_hertz: int = 16000
+    assemblyai_api_key: str = ""
 
     # Gemini (LLM)
     gemini_model_name: str = ""

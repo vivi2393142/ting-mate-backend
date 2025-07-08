@@ -7,15 +7,15 @@ from nanoid import generate
 
 from app.api.deps import get_current_user_or_create_anonymous
 from app.core.api_decorator import post_route
-from app.models.assistant_conversation import (
-    AssistantConversationCreate,
-    AssistantConversationUpdate,
-)
-from app.models.assistant_pending_task import AssistantPendingTaskCreate
-from app.models.assistant_pending_task import IntentType as PendingIntentType
 from app.repositories.assistant_conversation import AssistantConversationRepository
 from app.repositories.assistant_pending_task import AssistantPendingTaskRepository
 from app.repositories.task import TaskRepository
+from app.schemas.assistant_conversation import (
+    AssistantConversationCreate,
+    AssistantConversationUpdate,
+)
+from app.schemas.assistant_pending_task import AssistantPendingTaskCreate
+from app.schemas.assistant_pending_task import IntentType as PendingIntentType
 from app.schemas.task import (
     CreateTaskRequest,
     RecurrenceRule,

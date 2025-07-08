@@ -12,6 +12,8 @@ anyio==4.9.0
     #   httpx
     #   starlette
     #   watchfiles
+assemblyai==0.19.0
+    # via -r requirements.in
 bcrypt==4.3.0
     # via passlib
 cachetools==5.5.2
@@ -36,27 +38,10 @@ fastapi[standard]==0.115.14
     # via -r requirements.in
 fastapi-cli[standard]==0.0.7
     # via fastapi
-google-api-core[grpc]==2.25.1
-    # via google-cloud-speech
 google-auth==2.40.3
-    # via
-    #   google-api-core
-    #   google-cloud-speech
-    #   google-genai
-google-cloud-speech==2.33.0
-    # via -r requirements.in
+    # via google-genai
 google-genai==1.24.0
     # via -r requirements.in
-googleapis-common-protos==1.70.0
-    # via
-    #   google-api-core
-    #   grpcio-status
-grpcio==1.73.1
-    # via
-    #   google-api-core
-    #   grpcio-status
-grpcio-status==1.73.1
-    # via google-api-core
 h11==0.16.0
     # via
     #   httpcore
@@ -67,6 +52,7 @@ httptools==0.6.4
     # via uvicorn
 httpx==0.28.1
     # via
+    #   assemblyai
     #   fastapi
     #   google-genai
 idna==3.10
@@ -89,17 +75,6 @@ nanoid==2.0.0
     # via -r requirements.in
 passlib[bcrypt]==1.7.4
     # via -r requirements.in
-proto-plus==1.26.1
-    # via
-    #   google-api-core
-    #   google-cloud-speech
-protobuf==6.31.1
-    # via
-    #   google-api-core
-    #   google-cloud-speech
-    #   googleapis-common-protos
-    #   grpcio-status
-    #   proto-plus
 pyasn1==0.6.1
     # via
     #   pyasn1-modules
@@ -109,6 +84,7 @@ pyasn1-modules==0.4.2
 pydantic==2.11.7
     # via
     #   -r requirements.in
+    #   assemblyai
     #   fastapi
     #   google-genai
     #   pydantic-settings
@@ -130,9 +106,7 @@ python-multipart==0.0.20
 pyyaml==6.0.2
     # via uvicorn
 requests==2.32.4
-    # via
-    #   google-api-core
-    #   google-genai
+    # via google-genai
 rich==14.0.0
     # via
     #   rich-toolkit
@@ -154,6 +128,7 @@ typer==0.16.0
 typing-extensions==4.14.0
     # via
     #   anyio
+    #   assemblyai
     #   fastapi
     #   google-genai
     #   pydantic
@@ -178,5 +153,6 @@ watchfiles==1.1.0
     # via uvicorn
 websockets==15.0.1
     # via
+    #   assemblyai
     #   google-genai
     #   uvicorn

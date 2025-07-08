@@ -6,6 +6,6 @@ python-dotenv
 passlib[bcrypt]
 pyjwt
 mysql-connector-python
-google-cloud-speech
 google-genai
 nanoid
+assemblyai

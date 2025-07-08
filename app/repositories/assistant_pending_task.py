@@ -3,7 +3,7 @@ import logging
 from typing import Optional
 
 from app.core.database import execute_query, execute_update
-from app.models.assistant_pending_task import (
+from app.schemas.assistant_pending_task import (
     AssistantPendingTaskCreate,
     AssistantPendingTaskResponse,
 )

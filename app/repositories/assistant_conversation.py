@@ -3,7 +3,7 @@ import logging
 from typing import Optional
 
 from app.core.database import execute_query, execute_update
-from app.models.assistant_conversation import (
+from app.schemas.assistant_conversation import (
     AssistantConversationCreate,
     AssistantConversationResponse,
     AssistantConversationUpdate,

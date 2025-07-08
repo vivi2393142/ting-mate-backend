@@ -1,7 +1,7 @@
 import logging
 
 from app.core.database import execute_update
-from app.models.llm_log import LLMLogCreate
+from app.schemas.llm_log import LLMLogCreate
 
 logger = logging.getLogger(__name__)
 
