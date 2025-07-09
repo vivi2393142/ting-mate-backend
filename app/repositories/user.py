@@ -17,7 +17,7 @@ class UserRepository:
 
     @staticmethod
     def create_user(user_create) -> User:
-        """Create a new user or upgrade an anonymous user. The id is provided by frontend and must be a valid UUID."""
+        """Create a new user. The id is provided by frontend and must be a valid UUID."""
         try:
             # Validate id as UUID
             try:
@@ -31,13 +31,18 @@ class UserRepository:
             if not existing:
                 # Create new user
                 insert_sql = """
-                INSERT INTO users (id, email, hashed_password)
-                VALUES (%s, %s, %s)
+                INSERT INTO users (id, email, hashed_password, role)
+                VALUES (%s, %s, %s, %s)
                 """
                 try:
                     execute_update(
                         insert_sql,
-                        (user_create.id, user_create.email, hashed_password),
+                        (
+                            user_create.id,
+                            user_create.email,
+                            hashed_password,
+                            user_create.role,
+                        ),
                     )
                 except mysql.connector.IntegrityError as e:
                     if "Duplicate entry" in str(e) and "for key 'users.email'" in str(
@@ -49,13 +54,19 @@ class UserRepository:
                 if existing.email:
                     # Already registered
                     raise ValueError("User id already registered")
-                # Upgrade anonymous user: set email and hashed_password
+                # Upgrade anonymous user: set email, hashed_password, role
                 update_sql = """
-                UPDATE users SET email=%s, hashed_password=%s WHERE id=%s
+                UPDATE users SET email=%s, hashed_password=%s, role=%s WHERE id=%s
                 """
                 try:
                     execute_update(
-                        update_sql, (user_create.email, hashed_password, user_create.id)
+                        update_sql,
+                        (
+                            user_create.email,
+                            hashed_password,
+                            user_create.role,
+                            user_create.id,
+                        ),
                     )
                 except mysql.connector.IntegrityError as e:
                     if "Duplicate entry" in str(e) and "for key 'users.email'" in str(
@@ -65,54 +76,57 @@ class UserRepository:
                     raise
             # Ensure user settings exist (insert if not exists)
             settings_sql = """
-            INSERT IGNORE INTO user_settings (user_id, text_size, display_mode)
-            VALUES (%s, %s, %s)
+            INSERT IGNORE INTO user_settings (user_id, name, text_size, display_mode)
+            VALUES (%s, %s, %s, %s)
             """
-            execute_update(settings_sql, (user_create.id, "STANDARD", "FULL"))
+            execute_update(settings_sql, (user_create.id, "", "STANDARD", "FULL"))
             # Return user object
             return User(
                 id=user_create.id,
                 email=user_create.email,
+                role=user_create.role,
             )
         except Exception as e:
             raise ValueError(f"Failed to create or upgrade user: {str(e)}")
 
     @staticmethod
-    def create_anonymous_user(user_data: dict) -> User:
+    def create_anonymous_user(user_id: str) -> User:
         """Create a new anonymous user in database. The id is provided by frontend and must be a valid UUID."""
         try:
             # Validate id as UUID
             try:
-                UUID(user_data["id"])
+                UUID(user_id)
             except Exception:
                 raise ValueError("Invalid UUID format for user id")
             # Check for duplicate id
-            existing = UserRepository.get_user(user_data["id"], "id")
+            existing = UserRepository.get_user(user_id, "id")
             if existing:
                 raise ValueError("User id already exists")
             # Insert anonymous user into database
             insert_sql = """
-            INSERT INTO users (id, email, hashed_password)
-            VALUES (%s, %s, %s)
+            INSERT INTO users (id, email, hashed_password, role)
+            VALUES (%s, %s, %s, %s)
             """
             execute_update(
                 insert_sql,
                 (
-                    user_data["id"],
-                    user_data["email"],
-                    user_data["hashed_password"],
+                    user_id,
+                    None,
+                    None,
+                    "CARERECEIVER",
                 ),
             )
             # Create user settings
             settings_sql = """
-            INSERT INTO user_settings (user_id, text_size, display_mode)
-            VALUES (%s, %s, %s)
+            INSERT INTO user_settings (user_id, name, text_size, display_mode)
+            VALUES (%s, %s, %s, %s)
             """
-            execute_update(settings_sql, (user_data["id"], "STANDARD", "FULL"))
+            execute_update(settings_sql, (user_id, "", "STANDARD", "FULL"))
             # Return user object
             return User(
-                id=user_data["id"],
-                email=user_data["email"],
+                id=user_id,
+                email=None,
+                role="CARERECEIVER",
             )
         except Exception as e:
             raise ValueError(f"Failed to create anonymous user: {str(e)}")
@@ -143,4 +157,4 @@ class UserRepository:
     @staticmethod
     def userdb_to_user(userdb: UserDB) -> User:
         """Convert UserDB to User."""
-        return User(id=userdb.id, email=userdb.email)
+        return User(id=userdb.id, email=userdb.email, role=userdb.role)

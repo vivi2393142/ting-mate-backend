@@ -40,13 +40,7 @@ def create_anonymous_user(user_id: str) -> User:
         UUID(user_id)
     except Exception:
         raise ValueError("Invalid UUID format for user id")
-    # Delegate all existence checks and creation logic to repository
-    user_data = {
-        "id": user_id,
-        "email": None,
-        "hashed_password": None,
-    }
-    return UserRepository.create_anonymous_user(user_data)
+    return UserRepository.create_anonymous_user(user_id)
 
 
 def get_user_from_token(token: str) -> User | None:

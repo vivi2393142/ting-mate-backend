@@ -299,7 +299,6 @@ async def execute_pending_task(
     user: User = Depends(get_current_user_or_create_anonymous),
     conversation_id: str = Body(..., description="Conversation ID of the pending task"),
 ):
-    """Execute a pending task after user confirmation"""
     try:
         # Get pending task
         pending_task = (
@@ -410,10 +409,6 @@ async def voice_command(
         None, description="Audio encoding format (optional)"
     ),
 ):
-    """
-    Voice-based assistant command endpoint.
-    Converts audio to text, then runs the same logic as text_command.
-    """
     try:
         audio_content = await audio_file.read()
         ext = (

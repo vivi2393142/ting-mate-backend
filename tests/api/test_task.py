@@ -12,7 +12,13 @@ class TestTaskAPI:
         password = "test123456"
         if user_id is None:
             user_id = str(uuid.uuid4())
-        user_data = {"email": email, "password": password, "id": user_id}
+        user_data = {
+            "email": email,
+            "password": password,
+            "id": user_id,
+            "name": "Test User",
+            "role": "CARERECEIVER",
+        }
         reg = client.post("/auth/register", json=user_data)
         assert reg.status_code == status.HTTP_201_CREATED
         login = client.post("/auth/login", json={"email": email, "password": password})
@@ -283,11 +289,18 @@ class TestTaskAPI:
             "recurrence": {"interval": 1, "unit": "DAY"},
         }
         client.post("/tasks", json=req, params={"id": anon_id})
+
         # Register this id
         email = f"anon_{generate(size=8)}@example.com"
         password = "test123456"
-        user_data = {"email": email, "password": password, "id": anon_id}
+        user_data = {
+            "email": email,
+            "password": password,
+            "id": anon_id,
+            "role": "CARERECEIVER",
+        }
         client.post("/auth/register", json=user_data)
+
         # Try to use id again
         resp = client.get("/tasks", params={"id": anon_id})
         assert resp.status_code == 401
@@ -313,13 +326,20 @@ class TestTaskAPI:
             "recurrence": {"interval": 1, "unit": "DAY"},
         }
         client.post("/tasks", json=req, params={"id": anon_id})
+
         # Register and login
         email = f"persist_{generate(size=8)}@example.com"
         password = "test123456"
-        user_data = {"email": email, "password": password, "id": anon_id}
+        user_data = {
+            "email": email,
+            "password": password,
+            "id": anon_id,
+            "role": "CARERECEIVER",
+        }
         client.post("/auth/register", json=user_data)
         login = client.post("/auth/login", json={"email": email, "password": password})
         token = login.json()["access_token"]
+
         # Get tasks with token
         resp = client.get("/tasks", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200

@@ -15,10 +15,6 @@ MAX_AUDIO_SIZE = 2 * 1024 * 1024  # 2MB
     tags=["speech"],
 )
 async def transcribe_audio(audio_file: UploadFile = File(...)):
-    """
-    Transcribe uploaded audio file to text
-    Limit: max 2MB file size
-    """
     try:
         audio_content = await audio_file.read()
         if len(audio_content) > MAX_AUDIO_SIZE:

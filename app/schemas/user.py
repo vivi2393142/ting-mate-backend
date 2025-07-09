@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr
 class User(BaseModel):
     id: str  # Provided by frontend, must be valid UUID
     email: Optional[EmailStr] = None
+    role: Optional[str] = None
 
 
 class UserDB(User):

@@ -71,10 +71,11 @@ def create_tables(engine=None):
 
         from app.core.database import execute_update
 
-        # Create users table based on UserDB schema
+        # Create users table based on new schema
         users_table_sql = """
         CREATE TABLE IF NOT EXISTS users (
             id VARCHAR(36) PRIMARY KEY, -- Provided by frontend, must be valid UUID
+            role ENUM('CARERECEIVER', 'CAREGIVER') NOT NULL,
             email VARCHAR(100) UNIQUE,
             hashed_password VARCHAR(255),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -82,15 +83,30 @@ def create_tables(engine=None):
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
 
-        # Create user_settings table
+        # Create user_settings table (with JSON reminder and language)
         user_settings_table_sql = """
         CREATE TABLE IF NOT EXISTS user_settings (
             user_id VARCHAR(36) PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
             text_size ENUM('STANDARD', 'LARGE') DEFAULT 'STANDARD',
             display_mode ENUM('FULL', 'SIMPLE') DEFAULT 'FULL',
+            reminder JSON,
+            language VARCHAR(10) DEFAULT 'en-US',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+
+        # Create user_links table (caregiver <-> carereceiver relationship)
+        user_links_table_sql = """
+        CREATE TABLE IF NOT EXISTS user_links (
+            caregiver_id VARCHAR(36) NOT NULL,
+            carereceiver_id VARCHAR(36) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (caregiver_id, carereceiver_id),
+            FOREIGN KEY (caregiver_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (carereceiver_id) REFERENCES users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
 
@@ -185,6 +201,9 @@ def create_tables(engine=None):
 
         execute_update(user_settings_table_sql)
         logger.info("User settings table created successfully")
+
+        execute_update(user_links_table_sql)
+        logger.info("User links table created successfully")
 
         execute_update(tasks_table_sql)
         logger.info("Tasks table created successfully")
