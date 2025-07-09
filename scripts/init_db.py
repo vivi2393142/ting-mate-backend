@@ -74,9 +74,8 @@ def create_tables(engine=None):
         # Create users table based on UserDB schema
         users_table_sql = """
         CREATE TABLE IF NOT EXISTS users (
-            id VARCHAR(36) PRIMARY KEY,
+            id VARCHAR(36) PRIMARY KEY, -- Provided by frontend, must be valid UUID
             email VARCHAR(100) UNIQUE,
-            anonymous_id VARCHAR(50) UNIQUE,
             hashed_password VARCHAR(255),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

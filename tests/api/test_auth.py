@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import status
 from nanoid import generate
 
@@ -5,61 +7,87 @@ from nanoid import generate
 class TestRegister:
     """Test group for user registration functionality."""
 
-    def test_register_success(self, client):
-        """Test successful user registration with unique email."""
-        # Generate unique email to avoid conflicts
-        unique_email = f"test_{generate(size=8)}@example.com"
-        user_data = {
-            "email": unique_email,
-            "password": "test123456",
-            "anonymous_id": None,
-        }
-
+    def test_register_missing_id(self, client):
+        """Fail: registration fails if id is missing."""
+        user_data = {"email": "a@b.com", "password": "test123456"}
         response = client.post("/auth/register", json=user_data)
+        assert response.status_code == 422
 
+    def test_register_upgrade_anonymous(self, client):
+        """Success: register upgrades anonymous user if id exists without email."""
+        anon_id = str(uuid.uuid4())
+        from app.services.user import create_anonymous_user
+
+        create_anonymous_user(anon_id)
+        unique_email = f"test_{generate(size=8)}@example.com"
+        user_data = {"email": unique_email, "password": "test123456", "id": anon_id}
+        response = client.post("/auth/register", json=user_data)
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
-        assert data["message"] == "User registered successfully"
         assert data["user"]["email"] == unique_email
-        assert "id" in data["user"]
-        assert data["user"]["anonymous_id"] is None
+        assert data["user"]["id"] == anon_id
+
+    def test_register_duplicate_id(self, client):
+        """Fail: registration fails if id is already registered."""
+        unique_email1 = f"test_{generate(size=8)}@example.com"
+        unique_email2 = f"test_{generate(size=8)}@example.com"
+        user_id = str(uuid.uuid4())
+        user_data1 = {"email": unique_email1, "password": "test123456", "id": user_id}
+        user_data2 = {"email": unique_email2, "password": "test123456", "id": user_id}
+        response1 = client.post("/auth/register", json=user_data1)
+        assert response1.status_code == 201
+        response2 = client.post("/auth/register", json=user_data2)
+        assert response2.status_code == 400
+        assert "User id already registered" in response2.json()["detail"]
+
+    def test_register_missing_password(self, client):
+        """Fail: registration fails if password is missing."""
+        user_data = {
+            "email": f"test_{generate(size=8)}@example.com",
+            "id": str(uuid.uuid4()),
+        }
+        response = client.post("/auth/register", json=user_data)
+        assert response.status_code == 422
+
+    def test_register_missing_email(self, client):
+        """Fail: registration fails if email is missing."""
+        user_data = {"password": "test123456", "id": str(uuid.uuid4())}
+        response = client.post("/auth/register", json=user_data)
+        assert response.status_code == 422
+
+    def test_register_invalid_id_format(self, client):
+        """Fail: registration fails if id is not a valid UUID."""
+        user_data = {
+            "email": f"test_{generate(size=8)}@example.com",
+            "password": "test123456",
+            "id": "not-a-uuid",
+        }
+        response = client.post("/auth/register", json=user_data)
+        assert response.status_code == 400
+        assert "Invalid UUID format" in response.json()["detail"]
+
+    def test_register_invalid_email_format(self, client):
+        """Fail: registration fails if email is not valid."""
+        user_data = {
+            "email": "not-an-email",
+            "password": "test123456",
+            "id": str(uuid.uuid4()),
+        }
+        response = client.post("/auth/register", json=user_data)
+        assert response.status_code == 422
 
     def test_register_duplicate_email(self, client):
-        """Test registration with duplicate email."""
-        # First registration
+        """Fail: registration fails if email is already registered."""
         unique_email = f"test_{generate(size=8)}@example.com"
-        user_data = {
-            "email": unique_email,
-            "password": "test123456",
-            "anonymous_id": None,
-        }
-
-        response1 = client.post("/auth/register", json=user_data)
-        assert response1.status_code == status.HTTP_201_CREATED
-
-        # Try to register with same email
-        response2 = client.post("/auth/register", json=user_data)
-        assert response2.status_code == status.HTTP_400_BAD_REQUEST
+        user_id1 = str(uuid.uuid4())
+        user_id2 = str(uuid.uuid4())
+        user_data1 = {"email": unique_email, "password": "test123456", "id": user_id1}
+        user_data2 = {"email": unique_email, "password": "test123456", "id": user_id2}
+        response1 = client.post("/auth/register", json=user_data1)
+        assert response1.status_code == 201
+        response2 = client.post("/auth/register", json=user_data2)
+        assert response2.status_code == 400
         assert "Email already registered" in response2.json()["detail"]
-
-    def test_register_invalid_email(self, client):
-        """Test registration with invalid email format."""
-        user_data = {
-            "email": "invalid-email",
-            "password": "test123456",
-            "anonymous_id": None,
-        }
-
-        response = client.post("/auth/register", json=user_data)
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-
-    def test_register_short_password(self, client):
-        """Test registration with password too short."""
-        unique_email = f"test_{generate(size=8)}@example.com"
-        user_data = {"email": unique_email, "password": "123", "anonymous_id": None}
-
-        response = client.post("/auth/register", json=user_data)
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 class TestLogin:
@@ -72,7 +100,7 @@ class TestLogin:
         user_data = {
             "email": unique_email,
             "password": "test123456",
-            "anonymous_id": None,
+            "id": str(uuid.uuid4()),
         }
 
         register_response = client.post("/auth/register", json=user_data)
@@ -102,7 +130,7 @@ class TestLogin:
         user_data = {
             "email": unique_email,
             "password": "test123456",
-            "anonymous_id": None,
+            "id": str(uuid.uuid4()),
         }
 
         register_response = client.post("/auth/register", json=user_data)

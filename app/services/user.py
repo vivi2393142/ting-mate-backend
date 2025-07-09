@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from typing import Literal
+from uuid import UUID
 
 import jwt
-from nanoid import generate
 
 from app.core.config import settings
 from app.repositories.user import UserRepository
@@ -21,45 +21,31 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 
 
 def create_user(user_create: RegisterRequest) -> User:
-    # Check for duplicate email
-    existing_user = UserRepository.get_user(user_create.email, "email")
-    if existing_user:
-        raise ValueError("Email already registered")
-
-    # If anonymous_id is provided, check if anonymous user exists
-    if hasattr(user_create, "anonymous_id") and user_create.anonymous_id:
-        existing_anon_user = UserRepository.get_user(
-            user_create.anonymous_id, "anonymous_id"
-        )
-        if existing_anon_user:
-            # TODO: Implement anonymous user upgrade logic
-            # For now, create new user
-            pass
-
-    # Create new user in database
+    # Validate id as UUID
+    try:
+        UUID(user_create.id)
+    except Exception:
+        raise ValueError("Invalid UUID format for user id")
+    # Delegate all creation/upgrade logic to repository
     return UserRepository.create_user(user_create)
 
 
-def get_user(
-    value: str, by: Literal["id", "email", "anonymous_id"] = "id"
-) -> UserDB | None:
+def get_user(value: str, by: Literal["id", "email"] = "id") -> UserDB | None:
     return UserRepository.get_user(value, by)
 
 
-def create_anonymous_user(anonymous_id: str = None) -> User:
-    """Create a new anonymous user"""
-    if not anonymous_id:
-        anonymous_id = generate()
-
-    # Create anonymous user in database
+def create_anonymous_user(user_id: str) -> User:
+    """Create a new anonymous user with provided id (must be valid UUID)"""
+    try:
+        UUID(user_id)
+    except Exception:
+        raise ValueError("Invalid UUID format for user id")
+    # Delegate all existence checks and creation logic to repository
     user_data = {
-        "anonymous_id": anonymous_id,
+        "id": user_id,
         "email": None,
         "hashed_password": None,
-        "is_active": True,
-        "is_anonymous": True,
     }
-
     return UserRepository.create_anonymous_user(user_data)
 
 

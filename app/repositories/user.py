@@ -3,8 +3,9 @@ User repository - handles all database operations for users
 """
 
 from typing import Literal, Optional
+from uuid import UUID
 
-from nanoid import generate
+import mysql.connector
 
 from app.core.database import execute_query, execute_update
 from app.schemas.user import User, UserDB
@@ -16,117 +17,130 @@ class UserRepository:
 
     @staticmethod
     def create_user(user_create) -> User:
-        """Create a new user in database"""
+        """Create a new user or upgrade an anonymous user. The id is provided by frontend and must be a valid UUID."""
         try:
-            # Generate nanoid for new user
-            user_id = generate()
-
+            # Validate id as UUID
+            try:
+                UUID(user_create.id)
+            except Exception:
+                raise ValueError("Invalid UUID format for user id")
+            # Check for existing user by id
+            existing = UserRepository.get_user(user_create.id, "id")
             # Hash password
             hashed_password = get_password_hash(user_create.password)
-
-            # Insert user into database
-            insert_sql = """
-            INSERT INTO users (id, email, hashed_password, anonymous_id)
-            VALUES (%s, %s, %s, %s)
-            """
-
-            execute_update(
-                insert_sql,
-                (user_id, user_create.email, hashed_password, user_create.anonymous_id),
-            )
-
-            # Create user settings
+            if not existing:
+                # Create new user
+                insert_sql = """
+                INSERT INTO users (id, email, hashed_password)
+                VALUES (%s, %s, %s)
+                """
+                try:
+                    execute_update(
+                        insert_sql,
+                        (user_create.id, user_create.email, hashed_password),
+                    )
+                except mysql.connector.IntegrityError as e:
+                    if "Duplicate entry" in str(e) and "for key 'users.email'" in str(
+                        e
+                    ):
+                        raise ValueError("Email already registered")
+                    raise
+            else:
+                if existing.email:
+                    # Already registered
+                    raise ValueError("User id already registered")
+                # Upgrade anonymous user: set email and hashed_password
+                update_sql = """
+                UPDATE users SET email=%s, hashed_password=%s WHERE id=%s
+                """
+                try:
+                    execute_update(
+                        update_sql, (user_create.email, hashed_password, user_create.id)
+                    )
+                except mysql.connector.IntegrityError as e:
+                    if "Duplicate entry" in str(e) and "for key 'users.email'" in str(
+                        e
+                    ):
+                        raise ValueError("Email already registered")
+                    raise
+            # Ensure user settings exist (insert if not exists)
             settings_sql = """
-            INSERT INTO user_settings (user_id, text_size, display_mode)
+            INSERT IGNORE INTO user_settings (user_id, text_size, display_mode)
             VALUES (%s, %s, %s)
             """
-
-            execute_update(settings_sql, (user_id, "STANDARD", "FULL"))
-
+            execute_update(settings_sql, (user_create.id, "STANDARD", "FULL"))
             # Return user object
             return User(
-                id=user_id,
+                id=user_create.id,
                 email=user_create.email,
-                anonymous_id=user_create.anonymous_id,
             )
-
         except Exception as e:
-            raise ValueError(f"Failed to create user: {str(e)}")
+            raise ValueError(f"Failed to create or upgrade user: {str(e)}")
 
     @staticmethod
     def create_anonymous_user(user_data: dict) -> User:
-        """Create a new anonymous user in database"""
+        """Create a new anonymous user in database. The id is provided by frontend and must be a valid UUID."""
         try:
-            # Generate nanoid for new user
-            user_id = generate()
-
+            # Validate id as UUID
+            try:
+                UUID(user_data["id"])
+            except Exception:
+                raise ValueError("Invalid UUID format for user id")
+            # Check for duplicate id
+            existing = UserRepository.get_user(user_data["id"], "id")
+            if existing:
+                raise ValueError("User id already exists")
             # Insert anonymous user into database
             insert_sql = """
-            INSERT INTO users (id, email, hashed_password, anonymous_id)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO users (id, email, hashed_password)
+            VALUES (%s, %s, %s)
             """
-
             execute_update(
                 insert_sql,
                 (
-                    user_id,
+                    user_data["id"],
                     user_data["email"],
                     user_data["hashed_password"],
-                    user_data["anonymous_id"],
                 ),
             )
-
             # Create user settings
             settings_sql = """
             INSERT INTO user_settings (user_id, text_size, display_mode)
             VALUES (%s, %s, %s)
             """
-
-            execute_update(settings_sql, (user_id, "STANDARD", "FULL"))
-
+            execute_update(settings_sql, (user_data["id"], "STANDARD", "FULL"))
             # Return user object
             return User(
-                id=user_id,
+                id=user_data["id"],
                 email=user_data["email"],
-                anonymous_id=user_data["anonymous_id"],
             )
-
         except Exception as e:
             raise ValueError(f"Failed to create anonymous user: {str(e)}")
 
     @staticmethod
-    def get_user(
-        value: str, by: Literal["id", "email", "anonymous_id"] = "id"
-    ) -> Optional[UserDB]:
-        """Get user from database"""
+    def get_user(value: str, by: Literal["id", "email"] = "id") -> Optional[UserDB]:
+        """Get user from database by id or email only."""
         try:
             if by == "id":
                 query = "SELECT * FROM users WHERE id = %s"
             elif by == "email":
                 query = "SELECT * FROM users WHERE email = %s"
-            elif by == "anonymous_id":
-                query = "SELECT * FROM users WHERE anonymous_id = %s"
             else:
                 return None
-
             result = execute_query(query, (value,))
-
             if result:
                 user_data = result[0]
                 return UserDB(
                     id=user_data["id"],
                     email=user_data["email"],
                     hashed_password=user_data["hashed_password"],
-                    anonymous_id=user_data["anonymous_id"],
                 )
-
             return None
-
         except Exception as e:
             print(f"Error getting user: {e}")
             return None
 
     @staticmethod
     def userdb_to_user(userdb: UserDB) -> User:
-        """Convert UserDB to User"""
-        return User(id=userdb.id, email=userdb.email, anonymous_id=userdb.anonymous_id)
+        """Convert UserDB to User."""
+        return User(id=userdb.id, email=userdb.email)

@@ -10,7 +10,7 @@ import sys
 import mysql.connector
 
 # Add the project root to Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__) + "/../"))
 
 from app.core.config import settings  # noqa: E402
 from tests.test_config import TEST_DATABASE_NAME  # noqa: E402

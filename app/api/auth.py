@@ -14,14 +14,14 @@ from app.services.user import create_user, get_user
 @post_route(
     path="/auth/register",
     summary="User Registration",
-    description="Register a new user. If anonymous_id is provided, upgrade to a registered user.",
+    description="Register a new user. The id must be provided by frontend and be a valid UUID.",
     response_model=RegisterResponse,
     tags=["authentication"],
     status_code=201,
 )
 def register(request: RegisterRequest):
     """
-    Register a new user. If anonymous_id is provided, upgrade to a registered user.
+    Register a new user. The id must be provided by frontend and be a valid UUID.
     """
     user = create_user(request)
     return RegisterResponse(message="User registered successfully", user=user)
