@@ -8,7 +8,7 @@ from uuid import UUID
 import mysql.connector
 
 from app.core.database import execute_query, execute_update
-from app.schemas.user import User, UserDB
+from app.schemas.user import Role, User, UserDB, UserDisplayMode, UserTextSize
 from app.services.security import get_password_hash
 
 
@@ -79,7 +79,10 @@ class UserRepository:
             INSERT IGNORE INTO user_settings (user_id, name, text_size, display_mode)
             VALUES (%s, %s, %s, %s)
             """
-            execute_update(settings_sql, (user_create.id, "", "STANDARD", "FULL"))
+            execute_update(
+                settings_sql,
+                (user_create.id, "", UserTextSize.STANDARD, UserDisplayMode.FULL),
+            )
             # Return user object
             return User(
                 id=user_create.id,
@@ -113,7 +116,7 @@ class UserRepository:
                     user_id,
                     None,
                     None,
-                    "CARERECEIVER",
+                    Role.CARERECEIVER,
                 ),
             )
             # Create user settings
@@ -121,12 +124,14 @@ class UserRepository:
             INSERT INTO user_settings (user_id, name, text_size, display_mode)
             VALUES (%s, %s, %s, %s)
             """
-            execute_update(settings_sql, (user_id, "", "STANDARD", "FULL"))
+            execute_update(
+                settings_sql, (user_id, "", UserTextSize.STANDARD, UserDisplayMode.FULL)
+            )
             # Return user object
             return User(
                 id=user_id,
                 email=None,
-                role="CARERECEIVER",
+                role=Role.CARERECEIVER,
             )
         except Exception as e:
             raise ValueError(f"Failed to create anonymous user: {str(e)}")
@@ -144,10 +149,18 @@ class UserRepository:
             result = execute_query(query, (value,))
             if result:
                 user_data = result[0]
+                role = None
+                if user_data["role"]:
+                    try:
+                        role = Role(user_data["role"])
+                    except ValueError:
+                        # If role is not a valid enum value, set to None
+                        role = None
                 return UserDB(
                     id=user_data["id"],
                     email=user_data["email"],
                     hashed_password=user_data["hashed_password"],
+                    role=role,
                 )
             return None
         except Exception as e:
@@ -158,3 +171,42 @@ class UserRepository:
     def userdb_to_user(userdb: UserDB) -> User:
         """Convert UserDB to User."""
         return User(id=userdb.id, email=userdb.email, role=userdb.role)
+
+    @staticmethod
+    def get_user_settings(user_id: str) -> Optional[dict]:
+        """Get user_settings for a user_id."""
+        try:
+            query = "SELECT * FROM user_settings WHERE user_id = %s"
+            result = execute_query(query, (user_id,))
+            if result:
+                return result[0]
+            return None
+        except Exception as e:
+            print(f"Error getting user_settings: {e}")
+            return None
+
+    @staticmethod
+    def get_user_links(user_id: str, role: Role) -> list:
+        """Get linked users' email and name for a user, depending on role."""
+        try:
+            if role == Role.CAREGIVER:
+                # Caregiver: find all carereceivers
+                query = """
+                    SELECT u.email, s.name FROM user_links l
+                    JOIN users u ON l.carereceiver_id = u.id
+                    JOIN user_settings s ON s.user_id = u.id
+                    WHERE l.caregiver_id = %s
+                """
+            else:
+                # Carereceiver: find all caregivers
+                query = """
+                    SELECT u.email, s.name FROM user_links l
+                    JOIN users u ON l.caregiver_id = u.id
+                    JOIN user_settings s ON s.user_id = u.id
+                    WHERE l.carereceiver_id = %s
+                """
+            result = execute_query(query, (user_id,))
+            return list(result) if result else []
+        except Exception as e:
+            print(f"Error getting user_links: {e}")
+            return []

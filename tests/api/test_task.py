@@ -3,6 +3,8 @@ import uuid
 from fastapi import status
 from nanoid import generate
 
+from app.schemas.user import Role
+
 
 class TestTaskAPI:
     """Test group for task API endpoints (CRUD, status, error, edge cases)."""
@@ -17,7 +19,7 @@ class TestTaskAPI:
             "password": password,
             "id": user_id,
             "name": "Test User",
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
         reg = client.post("/auth/register", json=user_data)
         assert reg.status_code == status.HTTP_201_CREATED
@@ -297,7 +299,7 @@ class TestTaskAPI:
             "email": email,
             "password": password,
             "id": anon_id,
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
         client.post("/auth/register", json=user_data)
 
@@ -334,7 +336,7 @@ class TestTaskAPI:
             "email": email,
             "password": password,
             "id": anon_id,
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
         client.post("/auth/register", json=user_data)
         login = client.post("/auth/login", json={"email": email, "password": password})

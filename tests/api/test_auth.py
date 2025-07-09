@@ -3,6 +3,8 @@ import uuid
 from fastapi import status
 from nanoid import generate
 
+from app.schemas.user import Role
+
 
 class TestRegister:
     """Test group for user registration functionality."""
@@ -12,7 +14,7 @@ class TestRegister:
         user_data = {
             "email": "a@b.com",
             "password": "test123456",
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
         response = client.post("/auth/register", json=user_data)
         assert response.status_code == 422
@@ -28,14 +30,14 @@ class TestRegister:
             "email": unique_email,
             "password": "test123456",
             "id": anon_id,
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
         response = client.post("/auth/register", json=user_data)
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
         assert data["user"]["email"] == unique_email
         assert data["user"]["id"] == anon_id
-        assert data["user"]["role"] == "CARERECEIVER"
+        assert data["user"]["role"] == Role.CARERECEIVER
 
     def test_register_duplicate_id(self, client):
         """Fail: registration fails if id is already registered."""
@@ -46,13 +48,13 @@ class TestRegister:
             "email": unique_email1,
             "password": "test123456",
             "id": user_id,
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
         user_data2 = {
             "email": unique_email2,
             "password": "test123456",
             "id": user_id,
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
         response1 = client.post("/auth/register", json=user_data1)
         assert response1.status_code == 201
@@ -65,7 +67,7 @@ class TestRegister:
         user_data = {
             "email": f"test_{generate(size=8)}@example.com",
             "id": str(uuid.uuid4()),
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
         response = client.post("/auth/register", json=user_data)
         assert response.status_code == 422
@@ -75,7 +77,7 @@ class TestRegister:
         user_data = {
             "password": "test123456",
             "id": str(uuid.uuid4()),
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
         response = client.post("/auth/register", json=user_data)
         assert response.status_code == 422
@@ -86,7 +88,7 @@ class TestRegister:
             "email": f"test_{generate(size=8)}@example.com",
             "password": "test123456",
             "id": "not-a-uuid",
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
         response = client.post("/auth/register", json=user_data)
         assert response.status_code == 400
@@ -98,7 +100,7 @@ class TestRegister:
             "email": "not-an-email",
             "password": "test123456",
             "id": str(uuid.uuid4()),
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
         response = client.post("/auth/register", json=user_data)
         assert response.status_code == 422
@@ -112,13 +114,13 @@ class TestRegister:
             "email": unique_email,
             "password": "test123456",
             "id": user_id1,
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
         user_data2 = {
             "email": unique_email,
             "password": "test123456",
             "id": user_id2,
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
         response1 = client.post("/auth/register", json=user_data1)
         assert response1.status_code == 201
@@ -154,12 +156,12 @@ class TestRegister:
             "email": f"test_{generate(size=8)}@example.com",
             "password": "test123456",
             "id": str(uuid.uuid4()),
-            "role": "CAREGIVER",
+            "role": Role.CAREGIVER,
         }
         response = client.post("/auth/register", json=user_data)
         assert response.status_code == 201 or response.status_code == 201
         data = response.json()
-        assert data["user"]["role"] == "CAREGIVER"
+        assert data["user"]["role"] == Role.CAREGIVER
 
 
 class TestLogin:
@@ -173,7 +175,7 @@ class TestLogin:
             "email": unique_email,
             "password": "test123456",
             "id": str(uuid.uuid4()),
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
 
         register_response = client.post("/auth/register", json=user_data)
@@ -204,7 +206,7 @@ class TestLogin:
             "email": unique_email,
             "password": "test123456",
             "id": str(uuid.uuid4()),
-            "role": "CARERECEIVER",
+            "role": Role.CARERECEIVER,
         }
 
         register_response = client.post("/auth/register", json=user_data)
