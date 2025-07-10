@@ -42,6 +42,13 @@ class UserSettingsResponse(BaseModel):
     linked: List[UserLink]
 
 
+class UserSettingsUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    textSize: Optional[UserTextSize] = None
+    displayMode: Optional[UserDisplayMode] = None
+    reminder: Optional[dict] = None
+
+
 class UserMeResponse(BaseModel):
     email: Optional[EmailStr] = None
     role: Role

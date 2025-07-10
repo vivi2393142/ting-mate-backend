@@ -1,7 +1,9 @@
+import json
+
 from fastapi import Depends
 
 from app.api.deps import get_current_user_or_create_anonymous
-from app.core.api_decorator import get_route
+from app.core.api_decorator import get_route, put_route
 from app.repositories.user import UserRepository
 from app.schemas.user import (
     User,
@@ -9,6 +11,7 @@ from app.schemas.user import (
     UserLink,
     UserMeResponse,
     UserSettingsResponse,
+    UserSettingsUpdateRequest,
     UserTextSize,
 )
 
@@ -24,18 +27,10 @@ def get_current_user_api(user: User = Depends(get_current_user_or_create_anonymo
     # Get user settings from DB
     settings = UserRepository.get_user_settings(user.id)
     if not settings:
-        # If no settings found, return minimal user info
-        return UserMeResponse(
-            email=user.email,
-            role=user.role,
-            settings=UserSettingsResponse(
-                name="",
-                linked=[],
-                textSize=UserTextSize.STANDARD,
-                displayMode=UserDisplayMode.FULL,
-                reminder=None,
-            ),
-        )
+        # Since user should have settings (created by get_current_user_or_create_anonymous),
+        # if settings don't exist, it's a database error
+        raise ValueError("User settings not found in database")
+
     # Get linked users (as array of UserLink)
     if not user.email:
         linked_list = []
@@ -45,15 +40,86 @@ def get_current_user_api(user: User = Depends(get_current_user_or_create_anonymo
             UserLink(email=link["email"], name=link["name"]) for link in links
         ]
     # Compose reminder (pass through or use default if missing)
-    reminder = settings.get("reminder") or None
+    reminder = None
+    if settings.get("reminder"):
+        try:
+            reminder = (
+                json.loads(settings["reminder"])
+                if isinstance(settings["reminder"], str)
+                else settings["reminder"]
+            )
+        except (json.JSONDecodeError, TypeError):
+            reminder = None
+
     # Compose settings object
     settings_obj = UserSettingsResponse(
         name=settings.get("name", ""),
         linked=linked_list,
-        textSize=settings.get("text_size", "STANDARD"),
-        displayMode=settings.get("display_mode", "FULL"),
+        textSize=settings.get("text_size", UserTextSize.STANDARD),
+        displayMode=settings.get("display_mode", UserDisplayMode.FULL),
         reminder=reminder,
     )
+    # Compose and return user object
+    return UserMeResponse(
+        email=user.email,
+        role=user.role,
+        settings=settings_obj,
+    )
+
+
+@put_route(
+    path="/user/settings",
+    summary="Update User Settings",
+    description="Update current user settings including name, text size, display mode, and reminder preferences.",
+    response_model=UserMeResponse,
+    tags=["user"],
+)
+def update_user_settings_api(
+    settings_update: UserSettingsUpdateRequest,
+    user: User = Depends(get_current_user_or_create_anonymous),
+):
+    # Update user settings in database
+    success = UserRepository.update_user_settings(user.id, settings_update)
+    if not success:
+        raise ValueError("Failed to update user settings")
+
+    # Return updated user information (same as get_current_user_api)
+    settings = UserRepository.get_user_settings(user.id)
+    if not settings:
+        # Since user should have settings (created by get_current_user_or_create_anonymous),
+        # if settings don't exist, it's a database error
+        raise ValueError("User settings not found in database")
+
+    # Get linked users (as array of UserLink)
+    if not user.email:
+        linked_list = []
+    else:
+        links = UserRepository.get_user_links(user.id, user.role)
+        linked_list = [
+            UserLink(email=link["email"], name=link["name"]) for link in links
+        ]
+
+    # Compose reminder (pass through or use default if missing)
+    reminder = None
+    if settings.get("reminder"):
+        try:
+            reminder = (
+                json.loads(settings["reminder"])
+                if isinstance(settings["reminder"], str)
+                else settings["reminder"]
+            )
+        except (json.JSONDecodeError, TypeError):
+            reminder = None
+
+    # Compose settings object
+    settings_obj = UserSettingsResponse(
+        name=settings.get("name", ""),
+        linked=linked_list,
+        textSize=settings.get("text_size", UserTextSize.STANDARD),
+        displayMode=settings.get("display_mode", UserDisplayMode.FULL),
+        reminder=reminder,
+    )
+
     # Compose and return user object
     return UserMeResponse(
         email=user.email,

@@ -2,6 +2,7 @@
 User repository - handles all database operations for users
 """
 
+import json
 from typing import Literal, Optional
 from uuid import UUID
 
@@ -210,3 +211,63 @@ class UserRepository:
         except Exception as e:
             print(f"Error getting user_links: {e}")
             return []
+
+    @staticmethod
+    def update_user_settings(user_id: str, settings_update) -> bool:
+        """Update user settings for a user_id."""
+        try:
+            # First check if user settings exist
+            existing_settings = UserRepository.get_user_settings(user_id)
+
+            if not existing_settings:
+                # Create default settings if they don't exist
+                create_sql = """
+                INSERT INTO user_settings (user_id, name, text_size, display_mode)
+                VALUES (%s, %s, %s, %s)
+                """
+                execute_update(
+                    create_sql,
+                    (user_id, "", UserTextSize.STANDARD, UserDisplayMode.FULL),
+                )
+
+            # Build dynamic update query based on provided fields
+            update_fields = []
+            update_values = []
+
+            if settings_update.name is not None:
+                update_fields.append("name = %s")
+                update_values.append(settings_update.name)
+
+            if settings_update.textSize is not None:
+                update_fields.append("text_size = %s")
+                update_values.append(settings_update.textSize)
+
+            if settings_update.displayMode is not None:
+                update_fields.append("display_mode = %s")
+                update_values.append(settings_update.displayMode)
+
+            if settings_update.reminder is not None:
+                update_fields.append("reminder = %s")
+                # Convert to JSON string for database storage
+                update_values.append(json.dumps(settings_update.reminder))
+
+            if not update_fields:
+                # No fields to update
+                return True
+
+            # Add user_id to values
+            update_values.append(user_id)
+
+            # Construct the update query
+            update_sql = f"""
+            UPDATE user_settings 
+            SET {', '.join(update_fields)}
+            WHERE user_id = %s
+            """
+
+            execute_update(update_sql, tuple(update_values))
+            return True
+
+        except Exception as e:
+            print(f"Error updating user_settings: {e}")
+            return False
