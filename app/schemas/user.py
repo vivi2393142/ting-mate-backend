@@ -36,8 +36,13 @@ class UserLink(BaseModel):
 
 class UserSettingsResponse(BaseModel):
     name: str
-    text_size: UserTextSize
-    display_mode: UserDisplayMode
+    textSize: UserTextSize
+    displayMode: UserDisplayMode
     reminder: dict | None
-    language: str = "en-US"
-    links: List[UserLink]
+    linked: List[UserLink]
+
+
+class UserMeResponse(BaseModel):
+    email: Optional[EmailStr] = None
+    role: Role
+    settings: UserSettingsResponse
