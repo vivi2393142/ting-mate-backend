@@ -16,12 +16,17 @@ class TaskRepository:
     """Repository for task data access operations"""
 
     @staticmethod
-    def create_task(user_id: str, task_create: CreateTaskRequest) -> Task:
+    def create_task(
+        user_id: str, task_create: CreateTaskRequest, actual_operator_id: str = None
+    ) -> Task:
         """Create a new task in database"""
         try:
             # Generate nanoid for new task
             task_id = generate()
             now = datetime.now()
+
+            # Use actual_operator_id if provided, otherwise use user_id
+            operator_id = actual_operator_id if actual_operator_id else user_id
 
             # Prepare recurrence data
             recurrence_interval = None
@@ -68,8 +73,8 @@ class TaskRepository:
                     recurrence_days_of_week,
                     recurrence_days_of_month,
                     False,
-                    user_id,
-                    user_id,
+                    operator_id,
+                    operator_id,
                 ),
             )
 
@@ -82,9 +87,9 @@ class TaskRepository:
                 recurrence=task_create.recurrence,
                 completed=False,
                 created_at=now,
-                created_by=user_id,
+                created_by=operator_id,
                 updated_at=now,
-                updated_by=user_id,
+                updated_by=operator_id,
                 completed_at=None,
                 completed_by=None,
             )
@@ -166,7 +171,6 @@ class TaskRepository:
                     [updates.reminder_time.hour, updates.reminder_time.minute]
                 )
 
-            if updates.recurrence is not None:
                 if updates.recurrence:
                     update_fields.append("recurrence_interval = %s")
                     update_fields.append("recurrence_unit = %s")
@@ -263,6 +267,23 @@ class TaskRepository:
 
         except Exception as e:
             print(f"Error deleting task: {e}")
+            return False
+
+    @staticmethod
+    def delete_all_tasks_for_user(user_id: str) -> bool:
+        """Soft delete all tasks for a user"""
+        try:
+            update_sql = """
+            UPDATE tasks
+            SET deleted = TRUE, updated_by = %s
+            WHERE user_id = %s AND deleted = FALSE
+            """
+
+            result = execute_update(update_sql, (user_id, user_id))
+            return result >= 0  # Return True even if no tasks were deleted
+
+        except Exception as e:
+            print(f"Error deleting all tasks for user: {e}")
             return False
 
     @staticmethod

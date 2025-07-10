@@ -1,11 +1,12 @@
 import json
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 
 from app.api.deps import get_current_user_or_create_anonymous
-from app.core.api_decorator import get_route, put_route
+from app.core.api_decorator import get_route, post_route, put_route
 from app.repositories.user import UserRepository
 from app.schemas.user import (
+    Role,
     User,
     UserDisplayMode,
     UserLink,
@@ -126,3 +127,44 @@ def update_user_settings_api(
         role=user.role,
         settings=settings_obj,
     )
+
+
+@post_route(
+    path="/user/role/transition",
+    summary="Transition User Role",
+    description="Transition user role from CARERECEIVER to CAREGIVER. This will remove all existing tasks and links.",
+    tags=["user"],
+)
+def transition_user_role_api(
+    user: User = Depends(get_current_user_or_create_anonymous),
+):
+    # Restriction 1: Only CARERECEIVER can transition
+    if user.role != Role.CARERECEIVER:
+        raise HTTPException(
+            status_code=400, detail="Only CARERECEIVER can transition to CAREGIVER"
+        )
+
+    # Restriction 2: Only users without links can transition
+    from app.services.link import LinkService
+
+    existing_links = LinkService.get_carereceiver_links(user.id)
+    if existing_links:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot transition user with existing links. Please remove all links first.",
+        )
+
+    # Update user role in database
+    success = UserRepository.update_user_role(user.id, Role.CAREGIVER)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to transition user role")
+
+    # Remove all existing tasks for this user (since caregiver doesn't have own tasks)
+    from app.repositories.task import TaskRepository
+
+    TaskRepository.delete_all_tasks_for_user(user.id)
+
+    # Remove all existing links for this user
+    LinkService.remove_all_links_for_user(user.id)
+
+    return {"message": "Operation successful"}

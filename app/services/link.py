@@ -122,6 +122,24 @@ class LinkService:
             return False
 
     @staticmethod
+    def remove_all_links_for_user(user_id: str) -> bool:
+        """Remove all links for a user (both as caregiver and carereceiver)"""
+        try:
+            from app.core.database import execute_update
+
+            delete_sql = """
+            DELETE FROM user_links 
+            WHERE caregiver_id = %s OR carereceiver_id = %s
+            """
+
+            result = execute_update(delete_sql, (user_id, user_id))
+            return result >= 0  # Return True even if no links were deleted
+
+        except Exception as e:
+            print(f"Error removing all links for user: {e}")
+            return False
+
+    @staticmethod
     def get_caregiver_links(caregiver_id: str) -> List[dict]:
         """Get all carereceivers linked to a caregiver"""
         try:

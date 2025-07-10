@@ -271,3 +271,16 @@ class UserRepository:
         except Exception as e:
             print(f"Error updating user_settings: {e}")
             return False
+
+    @staticmethod
+    def update_user_role(user_id: str, new_role: Role) -> bool:
+        """Update user role in database"""
+        try:
+            update_sql = """
+            UPDATE users SET role = %s WHERE id = %s
+            """
+            result = execute_update(update_sql, (new_role.value, user_id))
+            return result > 0
+        except Exception as e:
+            print(f"Error updating user role: {e}")
+            return False

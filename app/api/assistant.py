@@ -24,7 +24,7 @@ from app.schemas.task import (
     ReminderTime,
     UpdateTaskFields,
 )
-from app.schemas.user import User
+from app.schemas.user import Role, User
 from app.services.llm import IntentType, Status, llm_service
 from app.services.speech import speech_service
 from app.services.task import get_tasks_for_user
@@ -35,9 +35,9 @@ logger = logging.getLogger(__name__)
 MAX_CONVERSATION_TURNS = 5
 
 
-def _get_active_tasks(user_id: str) -> list:
+def _get_active_tasks(user_id: str, user_role: Role = None) -> list:
     """Get all active (non-deleted) tasks for the user"""
-    db_tasks = get_tasks_for_user(user_id)
+    db_tasks = get_tasks_for_user(user_id, user_role)
     return [{"task_id": t.id, "title": t.title} for t in db_tasks]
 
 
@@ -65,7 +65,9 @@ def _get_filtered_candidates(
     return _get_previous_candidates(active_tasks, previous_result)
 
 
-def _generate_confirmation_message(intent_type: IntentType, task_data: dict) -> str:
+def _generate_confirmation_message(
+    intent_type: IntentType, task_data: dict, user: User = None
+) -> str:
     """Generate confirmation message based on intent type and task data"""
     if intent_type == IntentType.CREATE_TASK:
         title = task_data.get("title", "Unknown task")
@@ -95,16 +97,25 @@ def _generate_confirmation_message(intent_type: IntentType, task_data: dict) -> 
         # Try to get user_id and task_id from task_data
         user_id = task_data.get("user_id")
         task_id = task_data.get("result")
-        if user_id and task_id:
-            task = TaskRepository.get_task_by_id(user_id, task_id)
-            if task:
-                title = getattr(task, "title", "Unknown task")
-                reminder_time = getattr(task, "reminder_time", None)
-                if reminder_time:
-                    time_str = f"{reminder_time.hour:02d}:{reminder_time.minute:02d}"
-                    return f"Alright. Should I go ahead and delete the task '{title}' at {time_str}?"
-                else:
-                    return f"Alright. Should I go ahead and delete the task '{title}'?"
+        if user_id and task_id and user:
+            # Get actual task owner ID for caregiver
+            from app.services.task import get_actual_task_owner_id
+
+            actual_owner_id = get_actual_task_owner_id(user_id, user.role)
+            if actual_owner_id:
+                task = TaskRepository.get_task_by_id(actual_owner_id, task_id)
+                if task:
+                    title = getattr(task, "title", "Unknown task")
+                    reminder_time = getattr(task, "reminder_time", None)
+                    if reminder_time:
+                        time_str = (
+                            f"{reminder_time.hour:02d}:{reminder_time.minute:02d}"
+                        )
+                        return f"Alright. Should I go ahead and delete the task '{title}' at {time_str}?"
+                    else:
+                        return (
+                            f"Alright. Should I go ahead and delete the task '{title}'?"
+                        )
         # fallback
         return "Alright. Should I go ahead and delete this task?"
 
@@ -174,7 +185,7 @@ async def text_command(
         logger.info(f"Get New Conversation type: {intent_type}")
     logger.info("=== Check Intent Type ===")
     if intent_type == IntentType.DELETE_TASK:
-        active_tasks = _get_active_tasks(user.id)
+        active_tasks = _get_active_tasks(user.id, user.role)
         task_candidates = _get_filtered_candidates(
             active_tasks,
             assistant_conversation.llm_result if assistant_conversation else None,
@@ -188,7 +199,7 @@ async def text_command(
             conversation_id=conversation_id,
         )
     elif intent_type == IntentType.UPDATE_TASK:
-        active_tasks = _get_active_tasks(user.id)
+        active_tasks = _get_active_tasks(user.id, user.role)
 
         llm_resp = await llm_service.extract_update_task(
             active_tasks=json.dumps(active_tasks),
@@ -260,7 +271,9 @@ async def text_command(
         AssistantPendingTaskRepository.create_pending_task(pending_task)
 
         # Generate confirmation message
-        confirmation_message = _generate_confirmation_message(intent_type, task_data)
+        confirmation_message = _generate_confirmation_message(
+            intent_type, task_data, user
+        )
 
         return {
             "conversation_id": conversation_id,
@@ -359,7 +372,19 @@ async def execute_pending_task(
                 ),
             )
 
-            result = TaskRepository.create_task(user.id, create_request)
+            # Get actual task owner ID for caregiver
+            from app.services.task import get_actual_task_owner_id
+
+            actual_owner_id = get_actual_task_owner_id(user.id, user.role)
+            if not actual_owner_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No linked carereceiver found for caregiver",
+                )
+
+            result = TaskRepository.create_task(
+                actual_owner_id, create_request, user.id
+            )
 
         elif pending_task.intent_type == PendingIntentType.UPDATE_TASK:
             # Update task
@@ -374,11 +399,33 @@ async def execute_pending_task(
             if "completed" in task_data:
                 updates.completed = task_data["completed"]
 
-            result = TaskRepository.update_task(user.id, task_data["task_id"], updates)
+            # Get actual task owner ID for caregiver
+            from app.services.task import get_actual_task_owner_id
+
+            actual_owner_id = get_actual_task_owner_id(user.id, user.role)
+            if not actual_owner_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No linked carereceiver found for caregiver",
+                )
+
+            result = TaskRepository.update_task(
+                actual_owner_id, task_data["task_id"], updates
+            )
 
         elif pending_task.intent_type == PendingIntentType.DELETE_TASK:
             # Delete task
-            success = TaskRepository.delete_task(user.id, task_data["result"])
+            # Get actual task owner ID for caregiver
+            from app.services.task import get_actual_task_owner_id
+
+            actual_owner_id = get_actual_task_owner_id(user.id, user.role)
+            if not actual_owner_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No linked carereceiver found for caregiver",
+                )
+
+            success = TaskRepository.delete_task(actual_owner_id, task_data["result"])
             if not success:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
