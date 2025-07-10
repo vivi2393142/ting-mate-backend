@@ -72,10 +72,9 @@ def _generate_confirmation_message(intent_type: IntentType, task_data: dict) -> 
         hour = task_data.get("reminder_hour", 0)
         minute = task_data.get("reminder_minute", 0)
         time_str = f"{hour:02d}:{minute:02d}"
-        return f"Are you sure you want to create a task '{title}' with reminder at {time_str}?"
+        return f"Okay! Should I create the task '{title}' and remind you at {time_str}?"
 
     elif intent_type == IntentType.UPDATE_TASK:
-        task_id = task_data.get("task_id", "Unknown task")
         updates = []
         if "title" in task_data:
             updates.append(f"title to '{task_data['title']}'")
@@ -86,15 +85,30 @@ def _generate_confirmation_message(intent_type: IntentType, task_data: dict) -> 
         if "completed" in task_data:
             status = "completed" if task_data["completed"] else "uncompleted"
             updates.append(f"status to {status}")
-
         update_str = ", ".join(updates)
-        return f"Are you sure you want to update task '{task_id}' with {update_str}?"
+        if update_str:
+            return f"Got it. Do you want me to update this task to {update_str}?"
+        else:
+            return "Got it. Do you want me to update this task?"
 
     elif intent_type == IntentType.DELETE_TASK:
-        task_id = task_data.get("result", "Unknown task")
-        return f"Are you sure you want to delete task '{task_id}'?"
+        # Try to get user_id and task_id from task_data
+        user_id = task_data.get("user_id")
+        task_id = task_data.get("result")
+        if user_id and task_id:
+            task = TaskRepository.get_task_by_id(user_id, task_id)
+            if task:
+                title = getattr(task, "title", "Unknown task")
+                reminder_time = getattr(task, "reminder_time", None)
+                if reminder_time:
+                    time_str = f"{reminder_time.hour:02d}:{reminder_time.minute:02d}"
+                    return f"Alright. Should I go ahead and delete the task '{title}' at {time_str}?"
+                else:
+                    return f"Alright. Should I go ahead and delete the task '{title}'?"
+        # fallback
+        return "Alright. Should I go ahead and delete this task?"
 
-    return "Are you sure you want to proceed with this action?"
+    return "Want me to go ahead with that?"
 
 
 @post_route(
@@ -232,6 +246,7 @@ async def text_command(
         elif intent_type == IntentType.DELETE_TASK:
             task_data = {
                 "result": llm_resp.result,
+                "user_id": user.id,
             }
 
         # Create pending task
