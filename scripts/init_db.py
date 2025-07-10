@@ -110,6 +110,21 @@ def create_tables(engine=None):
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
 
+        # Create user_invitations table
+        user_invitations_table_sql = """
+        CREATE TABLE IF NOT EXISTS user_invitations (
+            id VARCHAR(36) PRIMARY KEY,
+            inviter_id VARCHAR(36) NOT NULL,
+            invitation_code VARCHAR(8) UNIQUE NOT NULL,
+            status ENUM('PENDING', 'ACCEPTED', 'EXPIRED') DEFAULT 'PENDING',
+            expires_at TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (inviter_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_invitation_code (invitation_code),
+            INDEX idx_inviter_id (inviter_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+
         # Create tasks table
         tasks_table_sql = """
         CREATE TABLE IF NOT EXISTS tasks (
@@ -204,6 +219,9 @@ def create_tables(engine=None):
 
         execute_update(user_links_table_sql)
         logger.info("User links table created successfully")
+
+        execute_update(user_invitations_table_sql)
+        logger.info("User invitations table created successfully")
 
         execute_update(tasks_table_sql)
         logger.info("Tasks table created successfully")
