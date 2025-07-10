@@ -38,6 +38,63 @@ class TestRegister:
         assert data["user"]["email"] == unique_email
         assert data["user"]["id"] == anon_id
         assert data["user"]["role"] == Role.CARERECEIVER
+        # Verify access token is returned
+        assert "access_token" in data
+        assert data["access_token"] is not None
+        assert "anonymous_id" in data
+        assert data["anonymous_id"] == anon_id
+
+    def test_register_returns_access_token(self, client):
+        """Success: registration returns access token and anonymous_id."""
+        unique_email = f"test_{generate(size=8)}@example.com"
+        user_id = str(uuid.uuid4())
+        user_data = {
+            "email": unique_email,
+            "password": "test123456",
+            "id": user_id,
+            "role": Role.CARERECEIVER,
+        }
+        response = client.post("/auth/register", json=user_data)
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+
+        # Verify all required fields are present
+        assert "message" in data
+        assert data["message"] == "User registered successfully"
+        assert "user" in data
+        assert "access_token" in data
+        assert "anonymous_id" in data
+
+        # Verify user data
+        assert data["user"]["email"] == unique_email
+        assert data["user"]["id"] == user_id
+        assert data["user"]["role"] == Role.CARERECEIVER
+
+        # Verify token data
+        assert data["access_token"] is not None
+        assert len(data["access_token"]) > 0
+        assert data["anonymous_id"] == user_id
+
+    def test_register_caregiver_returns_access_token(self, client):
+        """Success: caregiver registration returns access token."""
+        unique_email = f"test_{generate(size=8)}@example.com"
+        user_id = str(uuid.uuid4())
+        user_data = {
+            "email": unique_email,
+            "password": "test123456",
+            "id": user_id,
+            "role": Role.CAREGIVER,
+        }
+        response = client.post("/auth/register", json=user_data)
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+
+        # Verify access token is returned for caregiver
+        assert "access_token" in data
+        assert data["access_token"] is not None
+        assert "anonymous_id" in data
+        assert data["anonymous_id"] == user_id
+        assert data["user"]["role"] == Role.CAREGIVER
 
     def test_register_duplicate_id(self, client):
         """Fail: registration fails if id is already registered."""

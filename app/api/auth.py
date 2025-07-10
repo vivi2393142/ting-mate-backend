@@ -14,14 +14,21 @@ from app.services.user import create_user, get_user
 @post_route(
     path="/auth/register",
     summary="User Registration",
-    description="Register a new user. The id, email, and role must be provided by frontend and be valid.",
+    description="Register a new user and return access token. The id, email, and role must be provided by frontend and be valid.",
     response_model=RegisterResponse,
     tags=["authentication"],
     status_code=201,
 )
 def register(request: RegisterRequest):
     user = create_user(request)
-    return RegisterResponse(message="User registered successfully", user=user)
+    # Create access token immediately after registration
+    access_token = create_access_token({"sub": user.id})
+    return RegisterResponse(
+        message="User registered successfully",
+        user=user,
+        access_token=access_token,
+        anonymous_id=user.id,
+    )
 
 
 @post_route(
@@ -36,4 +43,4 @@ def login(request: LoginRequest):
     if not userdb or not verify_password(request.password, userdb.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     access_token = create_access_token({"sub": userdb.id})
-    return LoginResponse(access_token=access_token)
+    return LoginResponse(access_token=access_token, anonymous_id=userdb.id)

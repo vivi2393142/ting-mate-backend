@@ -16,6 +16,8 @@ class RegisterRequest(BaseModel):
 class RegisterResponse(BaseModel):
     message: str
     user: User
+    access_token: str
+    anonymous_id: str
 
 
 class LoginRequest(BaseModel):
@@ -24,6 +26,7 @@ class LoginRequest(BaseModel):
 
 
 class LoginResponse(BaseModel):
+    anonymous_id: str
     access_token: str
 
 
