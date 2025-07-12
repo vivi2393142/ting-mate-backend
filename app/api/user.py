@@ -1,6 +1,6 @@
 import json
 
-from fastapi import Depends, HTTPException
+from fastapi import Body, Depends, HTTPException
 
 from app.api.deps import get_current_user_or_create_anonymous
 from app.core.api_decorator import get_route, post_route, put_route
@@ -132,39 +132,43 @@ def update_user_settings_api(
 @post_route(
     path="/user/role/transition",
     summary="Transition User Role",
-    description="Transition user role from CARERECEIVER to CAREGIVER. This will remove all existing tasks and links.",
+    description="Transition user role between CARERECEIVER and CAREGIVER. Only users without any links can transition.",
     tags=["user"],
 )
 def transition_user_role_api(
     user: User = Depends(get_current_user_or_create_anonymous),
+    target_role: Role = Body(
+        ...,
+        embed=True,
+        description="Target role: 'CAREGIVER' or 'CARERECEIVER'",
+    ),
 ):
-    # Restriction 1: Only CARERECEIVER can transition
-    if user.role != Role.CARERECEIVER:
-        raise HTTPException(
-            status_code=400, detail="Only CARERECEIVER can transition to CAREGIVER"
-        )
-
-    # Restriction 2: Only users without links can transition
     from app.services.link import LinkService
 
-    existing_links = LinkService.get_carereceiver_links(user.id)
-    if existing_links:
+    # If target_role is the same as current role, do nothing
+    if user.role == target_role:
+        return {"message": "Operation successful"}
+
+    # Check if the user has any links (either as caregiver or carereceiver)
+    links_as_caregiver = LinkService.get_caregiver_links(user.id)
+    links_as_carereceiver = LinkService.get_carereceiver_links(user.id)
+    if links_as_caregiver or links_as_carereceiver:
         raise HTTPException(
             status_code=400,
             detail="Cannot transition user with existing links. Please remove all links first.",
         )
 
-    # Update user role in database
-    success = UserRepository.update_user_role(user.id, Role.CAREGIVER)
+    # Update the user role in the database
+    success = UserRepository.update_user_role(user.id, target_role)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to transition user role")
 
-    # Remove all existing tasks for this user (since caregiver doesn't have own tasks)
+    # Remove all tasks for this user (only carereceiver will have tasks, but this is safe for both roles)
     from app.repositories.task import TaskRepository
 
     TaskRepository.delete_all_tasks_for_user(user.id)
 
-    # Remove all existing links for this user
+    # Remove all links for this user (should be none, but just in case)
     LinkService.remove_all_links_for_user(user.id)
 
     return {"message": "Operation successful"}
