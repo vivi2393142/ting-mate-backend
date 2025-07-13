@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
@@ -34,12 +35,77 @@ class UserLink(BaseModel):
     name: str
 
 
+# Emergency Contact schemas
+class ContactMethod(str, Enum):
+    PHONE = "PHONE"
+    WHATSAPP = "WHATSAPP"
+
+
+class EmergencyContact(BaseModel):
+    id: str
+    name: str
+    phone: str
+    methods: List[ContactMethod]
+
+
+class EmergencyContactCreate(BaseModel):
+    id: str
+    name: str
+    phone: str
+    methods: List[ContactMethod]
+
+
+class EmergencyContactUpdate(BaseModel):
+    id: str
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    methods: Optional[List[ContactMethod]] = None
+
+
+# Location schemas
+class Location(BaseModel):
+    latitude: float
+    longitude: float
+
+
+# Safe Zone schemas
+class SafeZone(BaseModel):
+    latitude: float
+    longitude: float
+    radius: int  # in meters
+
+
+# Shared Note schemas
+class SharedNote(BaseModel):
+    id: str
+    title: str
+    content: Optional[str] = None
+    created_by: str
+    updated_by: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class SharedNoteCreate(BaseModel):
+    title: str
+    content: Optional[str] = None
+
+
+class SharedNoteUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+
+
 class UserSettingsResponse(BaseModel):
     name: str
     textSize: UserTextSize
     displayMode: UserDisplayMode
     reminder: dict | None
     linked: List[UserLink]
+    emergency_contacts: Optional[List[EmergencyContact]] = None
+    safe_zone: Optional[dict] = None
+    allow_share_location: bool = False
+    show_linked_location: bool = False
 
 
 class UserSettingsUpdateRequest(BaseModel):
@@ -47,6 +113,10 @@ class UserSettingsUpdateRequest(BaseModel):
     textSize: Optional[UserTextSize] = None
     displayMode: Optional[UserDisplayMode] = None
     reminder: Optional[dict] = None
+    emergency_contacts: Optional[List[EmergencyContact]] = None
+    safe_zone: Optional[dict] = None
+    allow_share_location: Optional[bool] = None
+    show_linked_location: Optional[bool] = None
 
 
 class UserMeResponse(BaseModel):

@@ -28,8 +28,6 @@ def get_current_user_api(user: User = Depends(get_current_user_or_create_anonymo
     # Get user settings from DB
     settings = UserRepository.get_user_settings(user.id)
     if not settings:
-        # Since user should have settings (created by get_current_user_or_create_anonymous),
-        # if settings don't exist, it's a database error
         raise ValueError("User settings not found in database")
 
     # Get linked users (as array of UserLink)
@@ -40,6 +38,7 @@ def get_current_user_api(user: User = Depends(get_current_user_or_create_anonymo
         linked_list = [
             UserLink(email=link["email"], name=link["name"]) for link in links
         ]
+
     # Compose reminder (pass through or use default if missing)
     reminder = None
     if settings.get("reminder"):
@@ -52,6 +51,32 @@ def get_current_user_api(user: User = Depends(get_current_user_or_create_anonymo
         except (json.JSONDecodeError, TypeError):
             reminder = None
 
+    # Compose emergency_contacts (pass through or use default if missing)
+    emergency_contacts = None
+    if settings.get("emergency_contacts"):
+        try:
+            emergency_contacts = (
+                json.loads(settings["emergency_contacts"])
+                if isinstance(settings["emergency_contacts"], str)
+                else settings["emergency_contacts"]
+            )
+            if not isinstance(emergency_contacts, list):
+                emergency_contacts = None
+        except (json.JSONDecodeError, TypeError):
+            emergency_contacts = None
+
+    # Compose safe_zone (pass through or use default if missing)
+    safe_zone = None
+    if settings.get("safe_zone"):
+        try:
+            safe_zone = (
+                json.loads(settings["safe_zone"])
+                if isinstance(settings["safe_zone"], str)
+                else settings["safe_zone"]
+            )
+        except (json.JSONDecodeError, TypeError):
+            safe_zone = None
+
     # Compose settings object
     settings_obj = UserSettingsResponse(
         name=settings.get("name", ""),
@@ -59,8 +84,11 @@ def get_current_user_api(user: User = Depends(get_current_user_or_create_anonymo
         textSize=settings.get("text_size", UserTextSize.STANDARD),
         displayMode=settings.get("display_mode", UserDisplayMode.FULL),
         reminder=reminder,
+        emergency_contacts=emergency_contacts,
+        safe_zone=safe_zone,
+        allow_share_location=settings.get("allow_share_location", False),
+        show_linked_location=settings.get("show_linked_location", False),
     )
-    # Compose and return user object
     return UserMeResponse(
         email=user.email,
         role=user.role,
@@ -87,8 +115,6 @@ def update_user_settings_api(
     # Return updated user information (same as get_current_user_api)
     settings = UserRepository.get_user_settings(user.id)
     if not settings:
-        # Since user should have settings (created by get_current_user_or_create_anonymous),
-        # if settings don't exist, it's a database error
         raise ValueError("User settings not found in database")
 
     # Get linked users (as array of UserLink)
@@ -112,6 +138,32 @@ def update_user_settings_api(
         except (json.JSONDecodeError, TypeError):
             reminder = None
 
+    # Compose emergency_contacts (pass through or use default if missing)
+    emergency_contacts = None
+    if settings.get("emergency_contacts"):
+        try:
+            emergency_contacts = (
+                json.loads(settings["emergency_contacts"])
+                if isinstance(settings["emergency_contacts"], str)
+                else settings["emergency_contacts"]
+            )
+            if not isinstance(emergency_contacts, list):
+                emergency_contacts = None
+        except (json.JSONDecodeError, TypeError):
+            emergency_contacts = None
+
+    # Compose safe_zone (pass through or use default if missing)
+    safe_zone = None
+    if settings.get("safe_zone"):
+        try:
+            safe_zone = (
+                json.loads(settings["safe_zone"])
+                if isinstance(settings["safe_zone"], str)
+                else settings["safe_zone"]
+            )
+        except (json.JSONDecodeError, TypeError):
+            safe_zone = None
+
     # Compose settings object
     settings_obj = UserSettingsResponse(
         name=settings.get("name", ""),
@@ -119,9 +171,11 @@ def update_user_settings_api(
         textSize=settings.get("text_size", UserTextSize.STANDARD),
         displayMode=settings.get("display_mode", UserDisplayMode.FULL),
         reminder=reminder,
+        emergency_contacts=emergency_contacts,
+        safe_zone=safe_zone,
+        allow_share_location=settings.get("allow_share_location", False),
+        show_linked_location=settings.get("show_linked_location", False),
     )
-
-    # Compose and return user object
     return UserMeResponse(
         email=user.email,
         role=user.role,

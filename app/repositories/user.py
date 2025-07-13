@@ -122,11 +122,22 @@ class UserRepository:
             )
             # Create user settings
             settings_sql = """
-            INSERT INTO user_settings (user_id, name, text_size, display_mode)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO user_settings (
+                user_id, name, text_size, display_mode, 
+                allow_share_location, show_linked_location
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
             """
             execute_update(
-                settings_sql, (user_id, "", UserTextSize.STANDARD, UserDisplayMode.FULL)
+                settings_sql,
+                (
+                    user_id,
+                    "",
+                    UserTextSize.STANDARD,
+                    UserDisplayMode.FULL,
+                    False,
+                    False,
+                ),
             )
             # Return user object
             return User(
@@ -250,6 +261,28 @@ class UserRepository:
                 update_fields.append("reminder = %s")
                 # Convert to JSON string for database storage
                 update_values.append(json.dumps(settings_update.reminder))
+
+            if settings_update.emergency_contacts is not None:
+                update_fields.append("emergency_contacts = %s")
+                # Convert Pydantic models to dict before JSON serialization
+                contacts = [
+                    c.model_dump() if hasattr(c, "model_dump") else c
+                    for c in settings_update.emergency_contacts
+                ]
+                update_values.append(json.dumps(contacts))
+
+            if settings_update.safe_zone is not None:
+                update_fields.append("safe_zone = %s")
+                # Convert to JSON string for database storage
+                update_values.append(json.dumps(settings_update.safe_zone))
+
+            if settings_update.allow_share_location is not None:
+                update_fields.append("allow_share_location = %s")
+                update_values.append(settings_update.allow_share_location)
+
+            if settings_update.show_linked_location is not None:
+                update_fields.append("show_linked_location = %s")
+                update_values.append(settings_update.show_linked_location)
 
             if not update_fields:
                 # No fields to update

@@ -56,6 +56,17 @@ class TestUserMeAPI:
         assert "reminder" in settings
         # reminder can be None or dict
         assert settings["reminder"] is None or isinstance(settings["reminder"], dict)
+        # New fields
+        assert "emergency_contacts" in settings
+        assert settings["emergency_contacts"] is None or isinstance(
+            settings["emergency_contacts"], list
+        )
+        assert "safe_zone" in settings
+        assert settings["safe_zone"] is None or isinstance(settings["safe_zone"], dict)
+        assert "allow_share_location" in settings
+        assert isinstance(settings["allow_share_location"], bool)
+        assert "show_linked_location" in settings
+        assert isinstance(settings["show_linked_location"], bool)
 
     def test_user_me_no_settings(self, client):
         """Should return default values if user_settings does not exist."""
@@ -71,6 +82,11 @@ class TestUserMeAPI:
         assert settings["textSize"] == UserTextSize.STANDARD
         assert settings["displayMode"] == UserDisplayMode.FULL
         assert settings["reminder"] is None
+        # New fields with default values
+        assert settings["emergency_contacts"] is None
+        assert settings["safe_zone"] is None
+        assert settings["allow_share_location"] is False
+        assert settings["show_linked_location"] is False
 
     def test_user_me_linked_content(self, client, register_user):
         """Should return correct linked user info after linking."""
@@ -407,3 +423,132 @@ class TestUpdateUserSettings:
         data = response.json()
         settings = data["settings"]
         assert settings["name"] == "Anonymous User"
+
+    def test_update_user_settings_emergency_contacts(self, client, register_user):
+        """Success: update emergency contacts."""
+        email, token, _ = register_user(Role.CARERECEIVER)
+
+        emergency_contacts = [
+            {
+                "id": "contact-1",
+                "name": "Emergency Contact 1",
+                "phone": "+1234567890",
+                "methods": ["PHONE", "WHATSAPP"],
+            },
+            {
+                "id": "contact-2",
+                "name": "Emergency Contact 2",
+                "phone": "+0987654321",
+                "methods": ["PHONE"],
+            },
+        ]
+
+        update_data = {"emergency_contacts": emergency_contacts}
+        response = client.put(
+            "/user/settings", json=update_data, headers=auth_headers(token)
+        )
+
+        if response.status_code != status.HTTP_200_OK:
+            print(f"Response status: {response.status_code}")
+            print(f"Response body: {response.text}")
+
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.json()
+        settings = data["settings"]
+        assert settings["emergency_contacts"] == emergency_contacts
+
+    def test_update_user_settings_safe_zone(self, client, register_user):
+        """Success: update safe zone."""
+        email, token, _ = register_user(Role.CARERECEIVER)
+
+        safe_zone = {"latitude": 51.4529183, "longitude": -2.5994918, "radius": 1000}
+
+        update_data = {"safe_zone": safe_zone}
+        response = client.put(
+            "/user/settings", json=update_data, headers=auth_headers(token)
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.json()
+        settings = data["settings"]
+        assert settings["safe_zone"] == safe_zone
+
+    def test_update_user_settings_location_sharing(self, client, register_user):
+        """Success: update location sharing settings."""
+        email, token, _ = register_user(Role.CARERECEIVER)
+
+        update_data = {"allow_share_location": True, "show_linked_location": False}
+        response = client.put(
+            "/user/settings", json=update_data, headers=auth_headers(token)
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.json()
+        settings = data["settings"]
+        assert settings["allow_share_location"] is True
+        assert settings["show_linked_location"] is False
+
+    def test_update_user_settings_all_new_fields(self, client, register_user):
+        """Success: update all new fields at once."""
+        email, token, _ = register_user(Role.CARERECEIVER)
+
+        emergency_contacts = [
+            {
+                "id": "contact-1",
+                "name": "Emergency Contact",
+                "phone": "+1234567890",
+                "methods": ["PHONE"],
+            }
+        ]
+
+        safe_zone = {"latitude": 51.4529183, "longitude": -2.5994918, "radius": 500}
+
+        update_data = {
+            "name": "Test User",
+            "emergency_contacts": emergency_contacts,
+            "safe_zone": safe_zone,
+            "allow_share_location": True,
+            "show_linked_location": True,
+        }
+
+        response = client.put(
+            "/user/settings", json=update_data, headers=auth_headers(token)
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.json()
+        settings = data["settings"]
+        assert settings["name"] == "Test User"
+        assert settings["emergency_contacts"] == emergency_contacts
+        assert settings["safe_zone"] == safe_zone
+        assert settings["allow_share_location"] is True
+        assert settings["show_linked_location"] is True
+
+    def test_update_user_settings_null_emergency_contacts(self, client, register_user):
+        """Success: set emergency_contacts to null."""
+        email, token, _ = register_user(Role.CARERECEIVER)
+
+        update_data = {"emergency_contacts": None}
+        response = client.put(
+            "/user/settings", json=update_data, headers=auth_headers(token)
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.json()
+        settings = data["settings"]
+        assert settings["emergency_contacts"] is None
+
+    def test_update_user_settings_null_safe_zone(self, client, register_user):
+        """Success: set safe_zone to null."""
+        email, token, _ = register_user(Role.CARERECEIVER)
+
+        update_data = {"safe_zone": None}
+        response = client.put(
+            "/user/settings", json=update_data, headers=auth_headers(token)
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.json()
+        settings = data["settings"]
+        assert settings["safe_zone"] is None

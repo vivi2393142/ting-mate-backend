@@ -92,9 +92,40 @@ def create_tables(engine=None):
             display_mode ENUM('FULL', 'SIMPLE') DEFAULT 'FULL',
             reminder JSON,
             language VARCHAR(10) DEFAULT 'en-US',
+            emergency_contacts JSON,
+            safe_zone JSON,
+            allow_share_location BOOLEAN DEFAULT FALSE,
+            show_linked_location BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+
+        # Create user_locations table
+        user_locations_table_sql = """
+        CREATE TABLE IF NOT EXISTS user_locations (
+            id VARCHAR(36) PRIMARY KEY,
+            latitude DECIMAL(10, 8) NOT NULL,
+            longitude DECIMAL(11, 8) NOT NULL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+
+        # Create shared_notes table
+        shared_notes_table_sql = """
+        CREATE TABLE IF NOT EXISTS shared_notes (
+            id VARCHAR(36) PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            content TEXT,
+            created_by VARCHAR(36) NOT NULL,
+            updated_by VARCHAR(36) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
 
@@ -216,6 +247,12 @@ def create_tables(engine=None):
 
         execute_update(user_settings_table_sql)
         logger.info("User settings table created successfully")
+
+        execute_update(user_locations_table_sql)
+        logger.info("User locations table created successfully")
+
+        execute_update(shared_notes_table_sql)
+        logger.info("Shared notes table created successfully")
 
         execute_update(user_links_table_sql)
         logger.info("User links table created successfully")
