@@ -1,53 +1,5 @@
-import uuid
-
-import pytest
-from fastapi import status
-from nanoid import generate
-
 from app.schemas.user import Role
-
-
-@pytest.fixture
-def register_user(client):
-    def _register(role, email=None, user_id=None):
-        if not email:
-            email = f"test_{generate(size=8)}@example.com"
-        if not user_id:
-            user_id = str(uuid.uuid4())
-        user_data = {
-            "email": email,
-            "password": "test123456",
-            "id": user_id,
-            "role": role,
-        }
-        reg = client.post("/auth/register", json=user_data)
-        assert reg.status_code == status.HTTP_201_CREATED
-        login = client.post(
-            "/auth/login", json={"email": email, "password": "test123456"}
-        )
-        assert login.status_code == status.HTTP_200_OK
-        token = login.json()["access_token"]
-        return email, token, user_id
-
-    return _register
-
-
-def auth_headers(token):
-    return {"Authorization": f"Bearer {token}"}
-
-
-def create_link_by_invitation(client, inviter_token, invitee_token):
-    # Inviter generates invitation
-    resp = client.post(
-        "/user/invitations/generate", headers=auth_headers(inviter_token)
-    )
-    assert resp.status_code == 200
-    code = resp.json()["invitation_code"]
-    # Invitee accepts invitation
-    resp2 = client.post(
-        f"/user/invitations/{code}/accept", headers=auth_headers(invitee_token)
-    )
-    assert resp2.status_code == 200
+from tests.conftest import auth_headers
 
 
 def get_links(client, token):
@@ -56,6 +8,18 @@ def get_links(client, token):
 
 def remove_link(client, token, user_email):
     return client.delete(f"/user/links/{user_email}", headers=auth_headers(token))
+
+
+def create_link_by_invitation(client, inviter_token, invitee_token):
+    resp = client.post(
+        "/user/invitations/generate", headers=auth_headers(inviter_token)
+    )
+    assert resp.status_code == 200
+    code = resp.json()["invitation_code"]
+    resp2 = client.post(
+        f"/user/invitations/{code}/accept", headers=auth_headers(invitee_token)
+    )
+    assert resp2.status_code == 200
 
 
 class TestLinkAPI:

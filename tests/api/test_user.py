@@ -1,39 +1,10 @@
 import uuid
 
-import pytest
 from fastapi import status
 from nanoid import generate
 
 from app.schemas.user import Role, UserDisplayMode, UserTextSize
-
-
-@pytest.fixture
-def register_user(client):
-    def _register(role, email=None, user_id=None):
-        if not email:
-            email = f"test_{generate(size=8)}@example.com"
-        if not user_id:
-            user_id = str(uuid.uuid4())
-        user_data = {
-            "email": email,
-            "password": "test123456",
-            "id": user_id,
-            "role": role,
-        }
-        reg = client.post("/auth/register", json=user_data)
-        assert reg.status_code == status.HTTP_201_CREATED
-        login = client.post(
-            "/auth/login", json={"email": email, "password": "test123456"}
-        )
-        assert login.status_code == status.HTTP_200_OK
-        token = login.json()["access_token"]
-        return email, token, user_id
-
-    return _register
-
-
-def auth_headers(token):
-    return {"Authorization": f"Bearer {token}"}
+from tests.conftest import auth_headers
 
 
 class TestUserMeAPI:

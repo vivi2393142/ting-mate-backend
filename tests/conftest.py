@@ -17,6 +17,8 @@ def client():
 
 @pytest.fixture
 def register_user(client):
+    """Register a user and return (email, token, user_id)."""
+
     def _register(role, email=None, user_id=None):
         if not email:
             email = f"test_{generate(size=8)}@example.com"
@@ -38,3 +40,49 @@ def register_user(client):
         return email, token, user_id
 
     return _register
+
+
+def auth_headers(token):
+    """Return authorization headers for a given token."""
+    return {"Authorization": f"Bearer {token}"}
+
+
+def create_link_by_invitation(client, inviter_token, invitee_token):
+    """Create a user link by invitation code."""
+    resp = client.post(
+        "/user/invitations/generate", headers=auth_headers(inviter_token)
+    )
+    assert resp.status_code == 200
+    code = resp.json()["invitation_code"]
+    resp2 = client.post(
+        f"/user/invitations/{code}/accept", headers=auth_headers(invitee_token)
+    )
+    assert resp2.status_code == 200
+
+
+@pytest.fixture
+def register_and_link_users(client, register_user):
+    """Register a carereceiver and caregiver, link them, and return their info."""
+    cr_email, cr_token, cr_id = register_user("CARERECEIVER")
+    cg_email, cg_token, cg_id = register_user("CAREGIVER")
+    # carereceiver enables allow_share_location
+    client.put(
+        "/user/settings",
+        json={"allow_share_location": True},
+        headers=auth_headers(cr_token),
+    )
+    # caregiver enables show_linked_location
+    client.put(
+        "/user/settings",
+        json={"show_linked_location": True},
+        headers=auth_headers(cg_token),
+    )
+    # caregiver generates invitation
+    resp = client.post("/user/invitations/generate", headers=auth_headers(cg_token))
+    code = resp.json()["invitation_code"]
+    # carereceiver accepts invitation
+    client.post(f"/user/invitations/{code}/accept", headers=auth_headers(cr_token))
+    return {
+        "carereceiver": {"email": cr_email, "token": cr_token, "id": cr_id},
+        "caregiver": {"email": cg_email, "token": cg_token, "id": cg_id},
+    }
