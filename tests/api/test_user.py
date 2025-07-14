@@ -462,7 +462,15 @@ class TestUpdateUserSettings:
         """Success: update safe zone."""
         email, token, _ = register_user(Role.CARERECEIVER)
 
-        safe_zone = {"latitude": 51.4529183, "longitude": -2.5994918, "radius": 1000}
+        safe_zone = {
+            "location": {
+                "name": "Home",
+                "address": "123 Main St, Bristol",
+                "latitude": 51.4529183,
+                "longitude": -2.5994918,
+            },
+            "radius": 1000,
+        }
 
         update_data = {"safe_zone": safe_zone}
         response = client.put(
@@ -502,7 +510,15 @@ class TestUpdateUserSettings:
             }
         ]
 
-        safe_zone = {"latitude": 51.4529183, "longitude": -2.5994918, "radius": 500}
+        safe_zone = {
+            "location": {
+                "name": "Home",
+                "address": "123 Main St, Bristol",
+                "latitude": 51.4529183,
+                "longitude": -2.5994918,
+            },
+            "radius": 500,
+        }
 
         update_data = {
             "name": "Test User",

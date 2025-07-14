@@ -68,10 +68,17 @@ class Location(BaseModel):
     longitude: float
 
 
-# Safe Zone schemas
-class SafeZone(BaseModel):
+# AddressData schema for SafeZone
+class AddressData(BaseModel):
+    name: str
+    address: str
     latitude: float
     longitude: float
+
+
+# Safe Zone schemas
+class SafeZone(BaseModel):
+    location: AddressData
     radius: int  # in meters
 
 
@@ -104,7 +111,7 @@ class UserSettingsResponse(BaseModel):
     reminder: dict | None
     linked: List[UserLink]
     emergency_contacts: Optional[List[EmergencyContact]] = None
-    safe_zone: Optional[dict] = None
+    safe_zone: Optional[SafeZone] = None
     allow_share_location: bool = False
     show_linked_location: bool = False
 
@@ -115,7 +122,7 @@ class UserSettingsUpdateRequest(BaseModel):
     displayMode: Optional[UserDisplayMode] = None
     reminder: Optional[dict] = None
     emergency_contacts: Optional[List[EmergencyContact]] = None
-    safe_zone: Optional[dict] = None
+    safe_zone: Optional[SafeZone] = None
     allow_share_location: Optional[bool] = None
     show_linked_location: Optional[bool] = None
 

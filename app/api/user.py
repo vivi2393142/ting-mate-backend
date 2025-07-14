@@ -69,12 +69,16 @@ def get_current_user_api(user: User = Depends(get_current_user_or_create_anonymo
     safe_zone = None
     if settings.get("safe_zone"):
         try:
-            safe_zone = (
+            safe_zone_raw = (
                 json.loads(settings["safe_zone"])
                 if isinstance(settings["safe_zone"], str)
                 else settings["safe_zone"]
             )
-        except (json.JSONDecodeError, TypeError):
+            if safe_zone_raw is not None:
+                from app.schemas.user import SafeZone
+
+                safe_zone = SafeZone.model_validate(safe_zone_raw)
+        except (json.JSONDecodeError, TypeError, ValueError):
             safe_zone = None
 
     # Compose settings object
@@ -156,12 +160,16 @@ def update_user_settings_api(
     safe_zone = None
     if settings.get("safe_zone"):
         try:
-            safe_zone = (
+            safe_zone_raw = (
                 json.loads(settings["safe_zone"])
                 if isinstance(settings["safe_zone"], str)
                 else settings["safe_zone"]
             )
-        except (json.JSONDecodeError, TypeError):
+            if safe_zone_raw is not None:
+                from app.schemas.user import SafeZone
+
+                safe_zone = SafeZone.model_validate(safe_zone_raw)
+        except (json.JSONDecodeError, TypeError, ValueError):
             safe_zone = None
 
     # Compose settings object

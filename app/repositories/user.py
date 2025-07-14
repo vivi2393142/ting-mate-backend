@@ -274,7 +274,12 @@ class UserRepository:
             if settings_update.safe_zone is not None:
                 update_fields.append("safe_zone = %s")
                 # Convert to JSON string for database storage
-                update_values.append(json.dumps(settings_update.safe_zone))
+                if hasattr(settings_update.safe_zone, "model_dump"):
+                    update_values.append(
+                        json.dumps(settings_update.safe_zone.model_dump())
+                    )
+                else:
+                    update_values.append(json.dumps(settings_update.safe_zone))
 
             if settings_update.allow_share_location is not None:
                 update_fields.append("allow_share_location = %s")
