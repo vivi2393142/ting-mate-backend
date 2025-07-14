@@ -15,12 +15,6 @@ def register_and_link_users(client, register_user):
         json={"allow_share_location": True},
         headers={"Authorization": f"Bearer {cr_token}"},
     )
-    # caregiver enables show_linked_location
-    client.put(
-        "/user/settings",
-        json={"show_linked_location": True},
-        headers={"Authorization": f"Bearer {cg_token}"},
-    )
     # caregiver generates invitation
     resp = client.post(
         "/user/invitations/generate", headers={"Authorization": f"Bearer {cg_token}"}
@@ -91,12 +85,6 @@ def test_caregiver_get_linked_location_no_link(client, register_user):
         json={"allow_share_location": True},
         headers={"Authorization": f"Bearer {cr_token}"},
     )
-    # caregiver enables show_linked_location
-    client.put(
-        "/user/settings",
-        json={"show_linked_location": True},
-        headers={"Authorization": f"Bearer {cg_token}"},
-    )
     # caregiver queries a carereceiver who is not linked
     resp = client.get(
         f"/user/linked-location/{cr_email}",
@@ -106,22 +94,6 @@ def test_caregiver_get_linked_location_no_link(client, register_user):
 
 
 def test_caregiver_get_linked_location_no_permission(client, register_and_link_users):
-    cr = register_and_link_users["carereceiver"]
-    cg = register_and_link_users["caregiver"]
-    # caregiver disables show_linked_location
-    client.put(
-        "/user/settings",
-        json={"show_linked_location": False},
-        headers={"Authorization": f"Bearer {cg['token']}"},
-    )
-    resp = client.get(
-        f"/user/linked-location/{cr['email']}",
-        headers={"Authorization": f"Bearer {cg['token']}"},
-    )
-    assert resp.status_code == status.HTTP_403_FORBIDDEN
-
-
-def test_caregiver_get_linked_location_cr_no_share(client, register_and_link_users):
     cr = register_and_link_users["carereceiver"]
     cg = register_and_link_users["caregiver"]
     # carereceiver disables allow_share_location
@@ -147,11 +119,28 @@ def test_caregiver_get_linked_location_not_found(client, register_and_link_users
     assert resp.status_code == status.HTTP_404_NOT_FOUND
 
 
-def test_carereceiver_cannot_get_linked_location(client, register_and_link_users):
+def test_carereceiver_can_get_linked_location(client, register_and_link_users):
     cr = register_and_link_users["carereceiver"]
-    # carereceiver tries to query linked location
+    cg = register_and_link_users["caregiver"]
+    # Enable caregiver to share location
+    client.put(
+        "/user/settings",
+        json={"allow_share_location": True},
+        headers={"Authorization": f"Bearer {cg['token']}"},
+    )
+    # Upload location for caregiver
+    location = {"latitude": 25.03, "longitude": 121.56}
+    client.post(
+        "/user/location",
+        json=location,
+        headers={"Authorization": f"Bearer {cg['token']}"},
+    )
+    # carereceiver can query caregiver's location
     resp = client.get(
-        f"/user/linked-location/{cr['email']}",
+        f"/user/linked-location/{cg['email']}",
         headers={"Authorization": f"Bearer {cr['token']}"},
     )
-    assert resp.status_code == status.HTTP_403_FORBIDDEN
+    assert resp.status_code == status.HTTP_200_OK
+    data = resp.json()
+    assert data["latitude"] == location["latitude"]
+    assert data["longitude"] == location["longitude"]

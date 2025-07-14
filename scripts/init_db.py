@@ -95,7 +95,6 @@ def create_tables(engine=None):
             emergency_contacts JSON,
             safe_zone JSON,
             allow_share_location BOOLEAN DEFAULT FALSE,
-            show_linked_location BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

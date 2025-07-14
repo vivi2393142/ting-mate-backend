@@ -91,7 +91,6 @@ def get_current_user_api(user: User = Depends(get_current_user_or_create_anonymo
         emergency_contacts=emergency_contacts,
         safe_zone=safe_zone,
         allow_share_location=settings.get("allow_share_location", False),
-        show_linked_location=settings.get("show_linked_location", False),
     )
     return UserMeResponse(
         email=user.email,
@@ -182,7 +181,6 @@ def update_user_settings_api(
         emergency_contacts=emergency_contacts,
         safe_zone=safe_zone,
         allow_share_location=settings.get("allow_share_location", False),
-        show_linked_location=settings.get("show_linked_location", False),
     )
     return UserMeResponse(
         email=user.email,

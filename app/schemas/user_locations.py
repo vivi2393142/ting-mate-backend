@@ -13,3 +13,7 @@ class UserLocationResponse(BaseModel):
     latitude: float
     longitude: float
     timestamp: datetime
+
+
+class ShouldGetLocationResponse(BaseModel):
+    should_get_location: bool

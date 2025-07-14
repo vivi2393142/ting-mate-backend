@@ -36,8 +36,6 @@ class TestUserMeAPI:
         assert settings["safe_zone"] is None or isinstance(settings["safe_zone"], dict)
         assert "allow_share_location" in settings
         assert isinstance(settings["allow_share_location"], bool)
-        assert "show_linked_location" in settings
-        assert isinstance(settings["show_linked_location"], bool)
 
     def test_user_me_no_settings(self, client):
         """Should return default values if user_settings does not exist."""
@@ -57,7 +55,6 @@ class TestUserMeAPI:
         assert settings["emergency_contacts"] is None
         assert settings["safe_zone"] is None
         assert settings["allow_share_location"] is False
-        assert settings["show_linked_location"] is False
 
     def test_user_me_linked_content(self, client, register_user):
         """Should return correct linked user info after linking."""
@@ -457,7 +454,7 @@ class TestUpdateUserSettings:
         """Success: update location sharing settings."""
         email, token, _ = register_user(Role.CARERECEIVER)
 
-        update_data = {"allow_share_location": True, "show_linked_location": False}
+        update_data = {"allow_share_location": True}
         response = client.put(
             "/user/settings", json=update_data, headers=auth_headers(token)
         )
@@ -466,7 +463,6 @@ class TestUpdateUserSettings:
         data = response.json()
         settings = data["settings"]
         assert settings["allow_share_location"] is True
-        assert settings["show_linked_location"] is False
 
     def test_update_user_settings_all_new_fields(self, client, register_user):
         """Success: update all new fields at once."""
@@ -496,7 +492,6 @@ class TestUpdateUserSettings:
             "emergency_contacts": emergency_contacts,
             "safe_zone": safe_zone,
             "allow_share_location": True,
-            "show_linked_location": True,
         }
 
         response = client.put(
@@ -510,7 +505,6 @@ class TestUpdateUserSettings:
         assert settings["emergency_contacts"] == emergency_contacts
         assert settings["safe_zone"] == safe_zone
         assert settings["allow_share_location"] is True
-        assert settings["show_linked_location"] is True
 
     def test_update_user_settings_null_emergency_contacts(self, client, register_user):
         """Success: set emergency_contacts to null."""

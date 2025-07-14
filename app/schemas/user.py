@@ -113,7 +113,6 @@ class UserSettingsResponse(BaseModel):
     emergency_contacts: Optional[List[EmergencyContact]] = None
     safe_zone: Optional[SafeZone] = None
     allow_share_location: bool = False
-    show_linked_location: bool = False
 
 
 class UserSettingsUpdateRequest(BaseModel):
@@ -124,7 +123,6 @@ class UserSettingsUpdateRequest(BaseModel):
     emergency_contacts: Optional[List[EmergencyContact]] = None
     safe_zone: Optional[SafeZone] = None
     allow_share_location: Optional[bool] = None
-    show_linked_location: Optional[bool] = None
 
 
 class UserMeResponse(BaseModel):

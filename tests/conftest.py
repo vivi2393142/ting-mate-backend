@@ -71,12 +71,6 @@ def register_and_link_users(client, register_user):
         json={"allow_share_location": True},
         headers=auth_headers(cr_token),
     )
-    # caregiver enables show_linked_location
-    client.put(
-        "/user/settings",
-        json={"show_linked_location": True},
-        headers=auth_headers(cg_token),
-    )
     # caregiver generates invitation
     resp = client.post("/user/invitations/generate", headers=auth_headers(cg_token))
     code = resp.json()["invitation_code"]

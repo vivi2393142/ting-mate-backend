@@ -124,9 +124,9 @@ class UserRepository:
             settings_sql = """
             INSERT INTO user_settings (
                 user_id, name, text_size, display_mode, 
-                allow_share_location, show_linked_location
+                allow_share_location
             )
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s)
             """
             execute_update(
                 settings_sql,
@@ -135,7 +135,6 @@ class UserRepository:
                     "",
                     UserTextSize.STANDARD,
                     UserDisplayMode.FULL,
-                    False,
                     False,
                 ),
             )
@@ -284,10 +283,6 @@ class UserRepository:
             if settings_update.allow_share_location is not None:
                 update_fields.append("allow_share_location = %s")
                 update_values.append(settings_update.allow_share_location)
-
-            if settings_update.show_linked_location is not None:
-                update_fields.append("show_linked_location = %s")
-                update_values.append(settings_update.show_linked_location)
 
             if not update_fields:
                 # No fields to update
