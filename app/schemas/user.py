@@ -78,6 +78,7 @@ class SafeZone(BaseModel):
 # Shared Note schemas
 class SharedNote(BaseModel):
     id: str
+    carereceiver_id: str
     title: str
     content: Optional[str] = None
     created_by: str

@@ -117,15 +117,17 @@ def create_tables(engine=None):
         shared_notes_table_sql = """
         CREATE TABLE IF NOT EXISTS shared_notes (
             id VARCHAR(36) PRIMARY KEY,
+            carereceiver_id VARCHAR(36) NOT NULL,
             title VARCHAR(255) NOT NULL,
             content TEXT,
             created_by VARCHAR(36) NOT NULL,
             updated_by VARCHAR(36) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE CASCADE
+            FOREIGN KEY (carereceiver_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (created_by) REFERENCES users(id),
+            FOREIGN KEY (updated_by) REFERENCES users(id),
+            INDEX idx_carereceiver_id (carereceiver_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
 

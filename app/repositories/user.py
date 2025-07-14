@@ -306,6 +306,22 @@ class UserRepository:
             return False
 
     @staticmethod
+    def get_linked_carereceivers(caregiver_id: str) -> list:
+        """Get all carereceivers linked to a caregiver."""
+        try:
+            query = """
+            SELECT u.id, u.email, s.name FROM user_links l
+            JOIN users u ON l.carereceiver_id = u.id
+            JOIN user_settings s ON s.user_id = u.id
+            WHERE l.caregiver_id = %s
+            """
+            result = execute_query(query, (caregiver_id,))
+            return list(result) if result else []
+        except Exception as e:
+            print(f"Error getting linked carereceivers: {e}")
+            return []
+
+    @staticmethod
     def update_user_role(user_id: str, new_role: Role) -> bool:
         """Update user role in database"""
         try:

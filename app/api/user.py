@@ -222,6 +222,15 @@ def transition_user_role_api(
 
     TaskRepository.delete_all_tasks_for_user(user.id)
 
+    # Remove all shared notes for this user (both as carereceiver and as creator)
+    from app.repositories.shared_notes import SharedNotesRepository
+
+    # Delete notes where user is the carereceiver
+    SharedNotesRepository.delete_all_notes_for_carereceiver(user.id)
+
+    # Delete notes where user is the creator (for any carereceiver)
+    SharedNotesRepository.delete_all_notes_created_by_user(user.id)
+
     # Remove all links for this user (should be none, but just in case)
     LinkService.remove_all_links_for_user(user.id)
 
