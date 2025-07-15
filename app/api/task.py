@@ -13,11 +13,11 @@ from app.schemas.task import (
 from app.schemas.user import User
 from app.services.task import (
     delete_task,
-    get_actual_task_owner_id,
     get_tasks_for_user,
     update_task,
     update_task_status,
 )
+from app.utils.user import get_actual_linked_carereceiver_id
 
 
 @get_route(
@@ -44,7 +44,7 @@ def create_task(
     req: CreateTaskRequest = None,
 ):
     # Get actual task owner ID
-    actual_owner_id = get_actual_task_owner_id(user.id, user.role)
+    actual_owner_id = get_actual_linked_carereceiver_id(user.id, user.role)
     if not actual_owner_id:
         raise HTTPException(
             status_code=400, detail="No linked carereceiver found for caregiver"
@@ -65,7 +65,7 @@ def get_task(
     user: User = Depends(get_current_user_or_create_anonymous), task_id: str = Path(...)
 ):
     # Get actual task owner ID
-    actual_owner_id = get_actual_task_owner_id(user.id, user.role)
+    actual_owner_id = get_actual_linked_carereceiver_id(user.id, user.role)
     if not actual_owner_id:
         raise HTTPException(status_code=404, detail="Task not found")
 

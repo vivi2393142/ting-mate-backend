@@ -93,11 +93,26 @@ def create_tables(engine=None):
             reminder JSON,
             language VARCHAR(10) DEFAULT 'en-US',
             emergency_contacts JSON,
-            safe_zone JSON,
             allow_share_location BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+
+        # Create safe_zones table
+        safe_zones_table_sql = """
+        CREATE TABLE IF NOT EXISTS safe_zones (
+            user_id VARCHAR(36) PRIMARY KEY,
+            location JSON NOT NULL COMMENT 'AddressData object',
+            radius INT NOT NULL COMMENT 'Radius in meters',
+            created_by VARCHAR(36) NOT NULL,
+            updated_by VARCHAR(36) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (created_by) REFERENCES users(id),
+            FOREIGN KEY (updated_by) REFERENCES users(id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
 
@@ -248,6 +263,9 @@ def create_tables(engine=None):
 
         execute_update(user_settings_table_sql)
         logger.info("User settings table created successfully")
+
+        execute_update(safe_zones_table_sql)
+        logger.info("Safe zones table created successfully")
 
         execute_update(user_locations_table_sql)
         logger.info("User locations table created successfully")

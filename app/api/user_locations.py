@@ -73,3 +73,38 @@ def update_location(
         raise HTTPException(status_code=500, detail="Failed to update location.")
     loc = UserLocationsRepository.get_location(user.id)
     return loc
+
+
+@get_route(
+    path="/user/can-get-location/{target_email}",
+    summary="Check if current user can get target user's location",
+    description=(
+        "Return true if the current user is linked to the target user and "
+        "the target user has enabled location sharing."
+    ),
+    response_model=bool,
+    tags=["user_locations"],
+)
+def can_get_linked_location(
+    target_email: str, user: User = Depends(get_current_user_or_create_anonymous)
+):
+    # Unregistered user cannot check
+    if not user.email:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+
+    # Find target user by email
+    target_user = UserRepository.get_user(target_email, by="email")
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    # Check if linked (either as caregiver or carereceiver)
+    links = UserRepository.get_user_links(user.id, user.role)
+    if not any(link["email"] == target_email for link in links):
+        return False
+
+    # Check if target user enabled allow_share_location
+    target_settings = UserRepository.get_user_settings(target_user.id)
+    if not target_settings or not target_settings.get("allow_share_location"):
+        return False
+
+    return True

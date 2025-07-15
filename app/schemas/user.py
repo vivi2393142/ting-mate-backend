@@ -111,7 +111,6 @@ class UserSettingsResponse(BaseModel):
     reminder: dict | None
     linked: List[UserLink]
     emergency_contacts: Optional[List[EmergencyContact]] = None
-    safe_zone: Optional[SafeZone] = None
     allow_share_location: bool = False
 
 
@@ -121,7 +120,6 @@ class UserSettingsUpdateRequest(BaseModel):
     displayMode: Optional[UserDisplayMode] = None
     reminder: Optional[dict] = None
     emergency_contacts: Optional[List[EmergencyContact]] = None
-    safe_zone: Optional[SafeZone] = None
     allow_share_location: Optional[bool] = None
 
 

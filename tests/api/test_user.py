@@ -32,8 +32,6 @@ class TestUserMeAPI:
         assert settings["emergency_contacts"] is None or isinstance(
             settings["emergency_contacts"], list
         )
-        assert "safe_zone" in settings
-        assert settings["safe_zone"] is None or isinstance(settings["safe_zone"], dict)
         assert "allow_share_location" in settings
         assert isinstance(settings["allow_share_location"], bool)
 
@@ -53,7 +51,6 @@ class TestUserMeAPI:
         assert settings["reminder"] is None
         # New fields with default values
         assert settings["emergency_contacts"] is None
-        assert settings["safe_zone"] is None
         assert settings["allow_share_location"] is False
 
     def test_user_me_linked_content(self, client, register_user):
@@ -426,30 +423,6 @@ class TestUpdateUserSettings:
         settings = data["settings"]
         assert settings["emergency_contacts"] == emergency_contacts
 
-    def test_update_user_settings_safe_zone(self, client, register_user):
-        """Success: update safe zone."""
-        email, token, _ = register_user(Role.CARERECEIVER)
-
-        safe_zone = {
-            "location": {
-                "name": "Home",
-                "address": "123 Main St, Bristol",
-                "latitude": 51.4529183,
-                "longitude": -2.5994918,
-            },
-            "radius": 1000,
-        }
-
-        update_data = {"safe_zone": safe_zone}
-        response = client.put(
-            "/user/settings", json=update_data, headers=auth_headers(token)
-        )
-        assert response.status_code == status.HTTP_200_OK
-
-        data = response.json()
-        settings = data["settings"]
-        assert settings["safe_zone"] == safe_zone
-
     def test_update_user_settings_location_sharing(self, client, register_user):
         """Success: update location sharing settings."""
         email, token, _ = register_user(Role.CARERECEIVER)
@@ -477,20 +450,9 @@ class TestUpdateUserSettings:
             }
         ]
 
-        safe_zone = {
-            "location": {
-                "name": "Home",
-                "address": "123 Main St, Bristol",
-                "latitude": 51.4529183,
-                "longitude": -2.5994918,
-            },
-            "radius": 500,
-        }
-
         update_data = {
             "name": "Test User",
             "emergency_contacts": emergency_contacts,
-            "safe_zone": safe_zone,
             "allow_share_location": True,
         }
 
@@ -503,7 +465,6 @@ class TestUpdateUserSettings:
         settings = data["settings"]
         assert settings["name"] == "Test User"
         assert settings["emergency_contacts"] == emergency_contacts
-        assert settings["safe_zone"] == safe_zone
         assert settings["allow_share_location"] is True
 
     def test_update_user_settings_null_emergency_contacts(self, client, register_user):
@@ -519,17 +480,3 @@ class TestUpdateUserSettings:
         data = response.json()
         settings = data["settings"]
         assert settings["emergency_contacts"] is None
-
-    def test_update_user_settings_null_safe_zone(self, client, register_user):
-        """Success: set safe_zone to null."""
-        email, token, _ = register_user(Role.CARERECEIVER)
-
-        update_data = {"safe_zone": None}
-        response = client.put(
-            "/user/settings", json=update_data, headers=auth_headers(token)
-        )
-        assert response.status_code == status.HTTP_200_OK
-
-        data = response.json()
-        settings = data["settings"]
-        assert settings["safe_zone"] is None

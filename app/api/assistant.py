@@ -28,6 +28,7 @@ from app.schemas.user import Role, User
 from app.services.llm import IntentType, Status, llm_service
 from app.services.speech import speech_service
 from app.services.task import get_tasks_for_user
+from app.utils.user import get_actual_linked_carereceiver_id
 
 logger = logging.getLogger(__name__)
 
@@ -99,9 +100,7 @@ def _generate_confirmation_message(
         task_id = task_data.get("result")
         if user_id and task_id and user:
             # Get actual task owner ID for caregiver
-            from app.services.task import get_actual_task_owner_id
-
-            actual_owner_id = get_actual_task_owner_id(user_id, user.role)
+            actual_owner_id = get_actual_linked_carereceiver_id(user_id, user.role)
             if actual_owner_id:
                 task = TaskRepository.get_task_by_id(actual_owner_id, task_id)
                 if task:
@@ -373,9 +372,7 @@ async def execute_pending_task(
             )
 
             # Get actual task owner ID for caregiver
-            from app.services.task import get_actual_task_owner_id
-
-            actual_owner_id = get_actual_task_owner_id(user.id, user.role)
+            actual_owner_id = get_actual_linked_carereceiver_id(user.id, user.role)
             if not actual_owner_id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -400,9 +397,7 @@ async def execute_pending_task(
                 updates.completed = task_data["completed"]
 
             # Get actual task owner ID for caregiver
-            from app.services.task import get_actual_task_owner_id
-
-            actual_owner_id = get_actual_task_owner_id(user.id, user.role)
+            actual_owner_id = get_actual_linked_carereceiver_id(user.id, user.role)
             if not actual_owner_id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -416,9 +411,7 @@ async def execute_pending_task(
         elif pending_task.intent_type == PendingIntentType.DELETE_TASK:
             # Delete task
             # Get actual task owner ID for caregiver
-            from app.services.task import get_actual_task_owner_id
-
-            actual_owner_id = get_actual_task_owner_id(user.id, user.role)
+            actual_owner_id = get_actual_linked_carereceiver_id(user.id, user.role)
             if not actual_owner_id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,

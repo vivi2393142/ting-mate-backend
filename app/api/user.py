@@ -65,22 +65,6 @@ def get_current_user_api(user: User = Depends(get_current_user_or_create_anonymo
         except (json.JSONDecodeError, TypeError):
             emergency_contacts = None
 
-    # Compose safe_zone (pass through or use default if missing)
-    safe_zone = None
-    if settings.get("safe_zone"):
-        try:
-            safe_zone_raw = (
-                json.loads(settings["safe_zone"])
-                if isinstance(settings["safe_zone"], str)
-                else settings["safe_zone"]
-            )
-            if safe_zone_raw is not None:
-                from app.schemas.user import SafeZone
-
-                safe_zone = SafeZone.model_validate(safe_zone_raw)
-        except (json.JSONDecodeError, TypeError, ValueError):
-            safe_zone = None
-
     # Compose settings object
     settings_obj = UserSettingsResponse(
         name=settings.get("name", ""),
@@ -89,7 +73,6 @@ def get_current_user_api(user: User = Depends(get_current_user_or_create_anonymo
         displayMode=settings.get("display_mode", UserDisplayMode.FULL),
         reminder=reminder,
         emergency_contacts=emergency_contacts,
-        safe_zone=safe_zone,
         allow_share_location=settings.get("allow_share_location", False),
     )
     return UserMeResponse(
@@ -155,22 +138,6 @@ def update_user_settings_api(
         except (json.JSONDecodeError, TypeError):
             emergency_contacts = None
 
-    # Compose safe_zone (pass through or use default if missing)
-    safe_zone = None
-    if settings.get("safe_zone"):
-        try:
-            safe_zone_raw = (
-                json.loads(settings["safe_zone"])
-                if isinstance(settings["safe_zone"], str)
-                else settings["safe_zone"]
-            )
-            if safe_zone_raw is not None:
-                from app.schemas.user import SafeZone
-
-                safe_zone = SafeZone.model_validate(safe_zone_raw)
-        except (json.JSONDecodeError, TypeError, ValueError):
-            safe_zone = None
-
     # Compose settings object
     settings_obj = UserSettingsResponse(
         name=settings.get("name", ""),
@@ -179,7 +146,6 @@ def update_user_settings_api(
         displayMode=settings.get("display_mode", UserDisplayMode.FULL),
         reminder=reminder,
         emergency_contacts=emergency_contacts,
-        safe_zone=safe_zone,
         allow_share_location=settings.get("allow_share_location", False),
     )
     return UserMeResponse(

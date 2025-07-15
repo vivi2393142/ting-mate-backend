@@ -6,6 +6,7 @@ from app.api import (
     auth,
     invitation,
     link,
+    safe_zones,
     shared_notes,
     speech,
     task,
@@ -27,5 +28,6 @@ auto_register_routes(router, speech)
 auto_register_routes(router, invitation)
 auto_register_routes(router, link)
 auto_register_routes(router, shared_notes)
+auto_register_routes(router, safe_zones)
 auto_register_routes(router, user_locations)
 app.include_router(router)

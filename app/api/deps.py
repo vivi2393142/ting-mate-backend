@@ -1,4 +1,3 @@
-import logging
 from typing import Optional
 from uuid import UUID
 
@@ -30,8 +29,6 @@ def get_current_user_or_create_anonymous(
     - If neither provided: error
     - If both provided: error
     """
-    logging.info(f"🤖 32, token: {token}")
-    logging.info(f"🤖 32, id: {id}")
     if token and id:
         raise HTTPException(
             status_code=400,
