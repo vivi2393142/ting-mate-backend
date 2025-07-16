@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     gemini_model_name: str = ""
     gemini_api_key: str = ""
 
+    # Google Places API
+    google_place_api_key: str = ""
+    google_place_search_api_url: str = ""
+
     model_config = {
         "env_file": ".env",
         "env_prefix": "TINGMATE_",
