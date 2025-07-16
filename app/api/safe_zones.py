@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException
 
-from app.api.deps import get_current_user_or_create_anonymous
+from app.api.deps import get_registered_user
 from app.core.api_decorator import delete_route, get_route, post_route
 from app.repositories.safe_zones import SafeZonesRepository
 from app.repositories.user import UserRepository
@@ -31,9 +31,7 @@ def _check_safe_zone_permission(requester, target_user):
     response_model=GetSafeZoneResponse,
     tags=["safe_zones"],
 )
-def get_safe_zone_api(
-    target_email: str, user: User = Depends(get_current_user_or_create_anonymous)
-):
+def get_safe_zone_api(target_email: str, user: User = Depends(get_registered_user)):
     target_user = UserRepository.get_user(target_email, by="email")
     if not target_user:
         raise HTTPException(status_code=404, detail="Target user not found")
@@ -58,7 +56,7 @@ def get_safe_zone_api(
 def upsert_safe_zone_api(
     target_email: str,
     safe_zone: SafeZone,
-    user: User = Depends(get_current_user_or_create_anonymous),
+    user: User = Depends(get_registered_user),
 ):
     target_user = UserRepository.get_user(target_email, by="email")
     if not target_user:
@@ -96,9 +94,7 @@ def upsert_safe_zone_api(
     description="Delete safe zone for the target user (by email).",
     tags=["safe_zones"],
 )
-def delete_safe_zone_api(
-    target_email: str, user: User = Depends(get_current_user_or_create_anonymous)
-):
+def delete_safe_zone_api(target_email: str, user: User = Depends(get_registered_user)):
     target_user = UserRepository.get_user(target_email, by="email")
     if not target_user:
         raise HTTPException(status_code=404, detail="Target user not found")

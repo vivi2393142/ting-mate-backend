@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException, Path
 
-from app.api.deps import get_current_user_or_create_anonymous
+from app.api.deps import get_registered_user
 from app.core.api_decorator import delete_route, get_route, post_route
 from app.repositories.invitation import InvitationRepository
 from app.schemas.invitation import (
@@ -20,7 +20,7 @@ from app.services.link import LinkService
     response_model=InvitationResponse,
     tags=["invitation"],
 )
-def generate_invitation(user: User = Depends(get_current_user_or_create_anonymous)):
+def generate_invitation(user: User = Depends(get_registered_user)):
     try:
         invitation = InvitationRepository.create_invitation(user.id)
         return InvitationResponse(
@@ -41,7 +41,7 @@ def generate_invitation(user: User = Depends(get_current_user_or_create_anonymou
 )
 def get_invitation_info(
     invitation_code: str = Path(..., description="The invitation code"),
-    user: User = Depends(get_current_user_or_create_anonymous),
+    user: User = Depends(get_registered_user),
 ):
     try:
         invitation_info = InvitationRepository.get_invitation_info(invitation_code)
@@ -81,7 +81,7 @@ def get_invitation_info(
 )
 def accept_invitation(
     invitation_code: str = Path(..., description="The invitation code"),
-    user: User = Depends(get_current_user_or_create_anonymous),
+    user: User = Depends(get_registered_user),
 ):
     try:
         # Use current user as invitee
@@ -129,7 +129,7 @@ def accept_invitation(
 )
 def cancel_invitation(
     invitation_code: str = Path(..., description="The invitation code"),
-    user: User = Depends(get_current_user_or_create_anonymous),
+    user: User = Depends(get_registered_user),
 ):
     try:
         # Get invitation to check ownership

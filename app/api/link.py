@@ -1,29 +1,10 @@
 from fastapi import Depends, HTTPException, Path
 
-from app.api.deps import get_current_user_or_create_anonymous
-from app.core.api_decorator import delete_route, get_route
+from app.api.deps import get_registered_user
+from app.core.api_decorator import delete_route
 from app.repositories.user import UserRepository
 from app.schemas.user import User
 from app.services.link import LinkService
-
-
-@get_route(
-    path="/user/links",
-    summary="Get User Links",
-    description="Get all linked users for the current user, including email and name.",
-    tags=["link"],
-)
-def get_user_links(user: User = Depends(get_current_user_or_create_anonymous)):
-    """Return all linked users with email and name."""
-    try:
-        links = LinkService.get_user_links(user.id, user.role)
-        # Only include email and name in the response
-        formatted_links = [
-            {"email": link["email"], "name": link["name"]} for link in links
-        ]
-        return {"links": formatted_links}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
 
 @delete_route(
@@ -34,7 +15,7 @@ def get_user_links(user: User = Depends(get_current_user_or_create_anonymous)):
 )
 def remove_user_link(
     user_email: str = Path(..., description="The email of the user to unlink from"),
-    user: User = Depends(get_current_user_or_create_anonymous),
+    user: User = Depends(get_registered_user),
 ):
     try:
         # Look up user id by email

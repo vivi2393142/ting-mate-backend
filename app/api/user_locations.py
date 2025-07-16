@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException
 
-from app.api.deps import get_current_user_or_create_anonymous
+from app.api.deps import get_registered_user
 from app.core.api_decorator import get_route, post_route
 from app.repositories.user import UserRepository
 from app.repositories.user_locations import UserLocationsRepository
@@ -19,9 +19,7 @@ from app.schemas.user_locations import (
     response_model=UserLocationResponse,
     tags=["user_locations"],
 )
-def get_linked_location(
-    target_email: str, user: User = Depends(get_current_user_or_create_anonymous)
-):
+def get_linked_location(target_email: str, user: User = Depends(get_registered_user)):
     # Unregistered user cannot access location
     if not user.email:
         raise HTTPException(status_code=401, detail="Authentication required.")
@@ -59,7 +57,7 @@ def get_linked_location(
 )
 def update_location(
     location: UserLocationCreate,
-    user: User = Depends(get_current_user_or_create_anonymous),
+    user: User = Depends(get_registered_user),
 ):
     # Unregistered user cannot update location
     if not user.email:
@@ -90,7 +88,7 @@ def update_location(
     tags=["user_locations"],
 )
 def can_get_linked_location(
-    target_email: str, user: User = Depends(get_current_user_or_create_anonymous)
+    target_email: str, user: User = Depends(get_registered_user)
 ):
     # Unregistered user cannot check
     if not user.email:

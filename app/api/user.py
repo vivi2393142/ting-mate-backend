@@ -2,7 +2,7 @@ import json
 
 from fastapi import Body, Depends, HTTPException
 
-from app.api.deps import get_current_user_or_create_anonymous
+from app.api.deps import get_current_user_or_create_anonymous, get_registered_user
 from app.core.api_decorator import get_route, post_route, put_route
 from app.repositories.user import UserRepository
 from app.schemas.user import (
@@ -162,7 +162,7 @@ def update_user_settings_api(
     tags=["user"],
 )
 def transition_user_role_api(
-    user: User = Depends(get_current_user_or_create_anonymous),
+    user: User = Depends(get_registered_user),
     target_role: Role = Body(
         ...,
         embed=True,
