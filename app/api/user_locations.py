@@ -5,7 +5,11 @@ from app.core.api_decorator import get_route, post_route
 from app.repositories.user import UserRepository
 from app.repositories.user_locations import UserLocationsRepository
 from app.schemas.user import User
-from app.schemas.user_locations import UserLocationCreate, UserLocationResponse
+from app.schemas.user_locations import (
+    ShouldGetLocationResponse,
+    UserLocationCreate,
+    UserLocationResponse,
+)
 
 
 @get_route(
@@ -82,7 +86,7 @@ def update_location(
         "Return true if the current user is linked to the target user and "
         "the target user has enabled location sharing."
     ),
-    response_model=bool,
+    response_model=ShouldGetLocationResponse,
     tags=["user_locations"],
 )
 def can_get_linked_location(
@@ -100,11 +104,11 @@ def can_get_linked_location(
     # Check if linked (either as caregiver or carereceiver)
     links = UserRepository.get_user_links(user.id, user.role)
     if not any(link["email"] == target_email for link in links):
-        return False
+        return ShouldGetLocationResponse(can_get_location=False)
 
     # Check if target user enabled allow_share_location
     target_settings = UserRepository.get_user_settings(target_user.id)
     if not target_settings or not target_settings.get("allow_share_location"):
-        return False
+        return ShouldGetLocationResponse(can_get_location=False)
 
-    return True
+    return ShouldGetLocationResponse(can_get_location=True)

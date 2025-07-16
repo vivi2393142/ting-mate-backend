@@ -16,4 +16,4 @@ class UserLocationResponse(BaseModel):
 
 
 class ShouldGetLocationResponse(BaseModel):
-    should_get_location: bool
+    can_get_location: bool

@@ -117,8 +117,8 @@ class TestSafeZoneAPI:
         )
         assert resp.status_code == status.HTTP_200_OK
         data = resp.json()
-        assert data["location"]["name"] == "Home"
-        assert data["radius"] == 1000
+        assert data["safe_zone"]["location"]["name"] == "Home"
+        assert data["safe_zone"]["radius"] == 1000
 
     def test_caregiver_get_safe_zone_for_linked_carereceiver(
         self, client, register_and_link_users
@@ -149,8 +149,8 @@ class TestSafeZoneAPI:
         )
         assert resp.status_code == status.HTTP_200_OK
         data = resp.json()
-        assert data["location"]["name"] == "Home"
-        assert data["radius"] == 1000
+        assert data["safe_zone"]["location"]["name"] == "Home"
+        assert data["safe_zone"]["radius"] == 1000
 
     def test_update_safe_zone_success(self, client, register_and_link_users):
         """Should update safe zone successfully (using POST for upsert)."""
@@ -223,4 +223,6 @@ class TestSafeZoneAPI:
             f"/safe-zone/{carereceiver['email']}",
             headers=auth_headers(carereceiver["token"]),
         )
-        assert resp2.status_code == status.HTTP_404_NOT_FOUND
+        assert resp2.status_code == status.HTTP_200_OK
+        # Should return safe_zone: None when safe zone is deleted but user has permission
+        assert resp2.json()["safe_zone"] is None

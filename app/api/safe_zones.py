@@ -4,7 +4,7 @@ from app.api.deps import get_current_user_or_create_anonymous
 from app.core.api_decorator import delete_route, get_route, post_route
 from app.repositories.safe_zones import SafeZonesRepository
 from app.repositories.user import UserRepository
-from app.schemas.user import Role, SafeZone, User
+from app.schemas.user import GetSafeZoneResponse, Role, SafeZone, User
 
 
 def _check_safe_zone_permission(requester, target_user):
@@ -28,7 +28,7 @@ def _check_safe_zone_permission(requester, target_user):
     path="/safe-zone/{target_email}",
     summary="Get Safe Zone",
     description="Get safe zone for the target user (by email).",
-    response_model=SafeZone,
+    response_model=GetSafeZoneResponse,
     tags=["safe_zones"],
 )
 def get_safe_zone_api(
@@ -42,15 +42,16 @@ def get_safe_zone_api(
             status_code=403, detail="No permission to access this user's safe zone"
         )
     safe_zone = SafeZonesRepository.get_safe_zone(target_user.id)
-    if not safe_zone:
-        raise HTTPException(status_code=404, detail="Safe zone not found")
-    return safe_zone
+    return GetSafeZoneResponse(safe_zone=safe_zone)
 
 
 @post_route(
     path="/safe-zone/{target_email}",
     summary="Upsert Safe Zone",
-    description="Create or update safe zone for the target user (by email). If the safe zone does not exist, it will be created.",
+    description=(
+        "Create or update safe zone for the target user (by email). "
+        "If the safe zone does not exist, it will be created."
+    ),
     response_model=SafeZone,
     tags=["safe_zones"],
 )

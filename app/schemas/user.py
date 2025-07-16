@@ -127,3 +127,7 @@ class UserMeResponse(BaseModel):
     email: Optional[EmailStr] = None
     role: Role
     settings: UserSettingsResponse
+
+
+class GetSafeZoneResponse(BaseModel):
+    safe_zone: Optional[SafeZone] = None
