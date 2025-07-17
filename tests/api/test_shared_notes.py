@@ -115,12 +115,22 @@ class TestSharedNotesAPI:
         get_response = client.get("/shared-notes", headers=auth_headers(token))
         assert get_response.status_code == status.HTTP_200_OK
 
-        data = get_response.json()
-        notes = data["data"]["result"]
+        notes = get_response.json()
         assert isinstance(notes, list)
         assert len(notes) == 1
-        assert notes[0]["title"] == "Test Note"
-        assert notes[0]["content"] == "This is a test note content"
+        note = notes[0]
+        assert note["title"] == "Test Note"
+        assert note["content"] == "This is a test note content"
+        assert "created_by" in note
+        assert "updated_by" in note
+        assert isinstance(note["created_by"], dict)
+        assert isinstance(note["updated_by"], dict)
+        assert "id" in note["created_by"]
+        assert "email" in note["created_by"]
+        assert "name" in note["created_by"]
+        assert "id" in note["updated_by"]
+        assert "email" in note["updated_by"]
+        assert "name" in note["updated_by"]
 
     def test_get_shared_notes_caregiver_success(self, client, register_user):
         """Success: caregiver gets linked carereceiver's notes."""
@@ -157,14 +167,17 @@ class TestSharedNotesAPI:
         )
         assert get_response.status_code == status.HTTP_200_OK
 
-        data = get_response.json()
-        assert "data" in data
-        assert "result" in data["data"]
-        notes = data["data"]["result"]
+        notes = get_response.json()
         assert isinstance(notes, list)
         assert len(notes) == 1
-        assert notes[0]["title"] == "Test Note"
-        assert notes[0]["content"] == "This is a test note content"
+        note = notes[0]
+        assert note["title"] == "Test Note"
+        assert note["content"] == "This is a test note content"
+        assert note["carereceiver_id"] == carereceiver_id
+        assert "created_by" in note
+        assert "updated_by" in note
+        assert isinstance(note["created_by"], dict)
+        assert isinstance(note["updated_by"], dict)
 
     def test_get_shared_notes_empty(self, client, register_user):
         """Success: get notes when none exist."""
@@ -172,10 +185,9 @@ class TestSharedNotesAPI:
 
         response = client.get("/shared-notes", headers=auth_headers(token))
         assert response.status_code == status.HTTP_200_OK
-        data = response.json()
-        assert "data" in data
-        assert "result" in data["data"]
-        assert data["data"]["result"] == []
+        notes = response.json()
+        assert isinstance(notes, list)
+        assert notes == []
 
     def test_update_shared_note_success(self, client, register_user):
         """Success: update shared note."""
@@ -280,8 +292,8 @@ class TestSharedNotesAPI:
         # Verify note is deleted
         get_response = client.get("/shared-notes", headers=auth_headers(token))
         assert get_response.status_code == status.HTTP_200_OK
-        data = get_response.json()
-        assert data["data"]["result"] == []
+        notes = get_response.json()
+        assert notes == []
 
     def test_delete_shared_note_unauthorized(self, client, register_user):
         """Fail: delete note without access."""
@@ -416,8 +428,7 @@ class TestSharedNotesAPI:
             "/shared-notes", headers=auth_headers(caregiver2_token)
         )
         assert get_response2.status_code == status.HTTP_200_OK
-        data2 = get_response2.json()
-        notes2 = data2["data"]["result"]
+        notes2 = get_response2.json()
         assert len(notes2) == 1
         assert notes2[0]["title"] == "Updated by Caregiver 1"
         assert notes2[0]["content"] == "Content from caregiver 1"
@@ -436,8 +447,7 @@ class TestSharedNotesAPI:
             "/shared-notes", headers=auth_headers(caregiver1_token)
         )
         assert get_response1.status_code == status.HTTP_200_OK
-        data1 = get_response1.json()
-        notes1 = data1["data"]["result"]
+        notes1 = get_response1.json()
         assert len(notes1) == 1
         assert notes1[0]["title"] == "Updated by Caregiver 1"  # Title unchanged
         assert notes1[0]["content"] == "Content from caregiver 2"  # Content updated
@@ -447,10 +457,7 @@ class TestSharedNotesAPI:
             "/shared-notes", headers=auth_headers(carereceiver_token)
         )
         assert get_response_carereceiver.status_code == status.HTTP_200_OK
-        data_carereceiver = get_response_carereceiver.json()
-        assert "data" in data_carereceiver
-        assert "result" in data_carereceiver["data"]
-        notes_carereceiver = data_carereceiver["data"]["result"]
+        notes_carereceiver = get_response_carereceiver.json()
         assert len(notes_carereceiver) == 1
         assert notes_carereceiver[0]["title"] == "Updated by Caregiver 1"
         assert notes_carereceiver[0]["content"] == "Content from caregiver 2"
@@ -478,10 +485,7 @@ class TestSharedNotesAPI:
             "/shared-notes", headers=auth_headers(carereceiver_token)
         )
         assert get_response.status_code == status.HTTP_200_OK
-        data = get_response.json()
-        assert "data" in data
-        assert "result" in data["data"]
-        notes = data["data"]["result"]
+        notes = get_response.json()
         assert len(notes) == 1
         assert notes[0]["id"] == note_id
 
@@ -499,11 +503,8 @@ class TestSharedNotesAPI:
             "/shared-notes", headers=auth_headers(carereceiver_token)
         )
         assert get_response_after.status_code == status.HTTP_200_OK
-        data_after = get_response_after.json()
-        assert "data" in data_after
-        assert "result" in data_after["data"]
-        notes_after = data_after["data"]["result"]
-        assert len(notes_after) == 0  # Note should be deleted
+        notes_after = get_response_after.json()
+        assert notes_after == []  # Note should be deleted
 
         # Transition back to carereceiver to test the other direction
         transition_data_back = {"target_role": "CARERECEIVER"}
@@ -519,8 +520,5 @@ class TestSharedNotesAPI:
             "/shared-notes", headers=auth_headers(carereceiver_token)
         )
         assert get_response_final.status_code == status.HTTP_200_OK
-        data_final = get_response_final.json()
-        assert "data" in data_final
-        assert "result" in data_final["data"]
-        notes_final = data_final["data"]["result"]
-        assert len(notes_final) == 0  # Notes should still be deleted
+        notes_final = get_response_final.json()
+        assert notes_final == []  # Notes should still be deleted

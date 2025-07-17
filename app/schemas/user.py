@@ -131,3 +131,20 @@ class UserMeResponse(BaseModel):
 
 class GetSafeZoneResponse(BaseModel):
     safe_zone: Optional[SafeZone] = None
+
+
+class UserInfo(BaseModel):
+    id: str
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+
+
+class SharedNoteWithUser(BaseModel):
+    id: str
+    carereceiver_id: str
+    title: str
+    content: Optional[str] = None
+    created_by: UserInfo
+    updated_by: UserInfo
+    created_at: datetime
+    updated_at: datetime

@@ -1,4 +1,5 @@
 import logging
+import typing
 from functools import wraps
 from typing import List, Optional, Type
 
@@ -25,6 +26,10 @@ def api_route(
 ):
     import inspect
 
+    def is_list_response_model(model):
+        origin = getattr(model, "__origin__", None)
+        return origin in (list, typing.List)
+
     def decorator(func):
         if not summary:
             raise ValueError(f"API {path} must provide summary")
@@ -38,15 +43,18 @@ def api_route(
                 try:
                     logger.info(f"API called: {method} {path}")
                     result = await func(*args, **kwargs)
-                    if not isinstance(result, BaseModel):
-                        if isinstance(result, dict):
-                            result = BaseResponse(
-                                message="Operation successful", data=result
-                            )
-                        else:
-                            result = BaseResponse(
-                                message="Operation successful", data={"result": result}
-                            )
+                    # Only wrap if not a list response model
+                    if not is_list_response_model(response_model):
+                        if not isinstance(result, BaseModel):
+                            if isinstance(result, dict):
+                                result = BaseResponse(
+                                    message="Operation successful", data=result
+                                )
+                            else:
+                                result = BaseResponse(
+                                    message="Operation successful",
+                                    data={"result": result},
+                                )
                     logger.info(f"API success: {method} {path}")
                     return result
                 except HTTPException as e:
@@ -76,15 +84,18 @@ def api_route(
                 try:
                     logger.info(f"API called: {method} {path}")
                     result = func(*args, **kwargs)
-                    if not isinstance(result, BaseModel):
-                        if isinstance(result, dict):
-                            result = BaseResponse(
-                                message="Operation successful", data=result
-                            )
-                        else:
-                            result = BaseResponse(
-                                message="Operation successful", data={"result": result}
-                            )
+                    # Only wrap if not a list response model
+                    if not is_list_response_model(response_model):
+                        if not isinstance(result, BaseModel):
+                            if isinstance(result, dict):
+                                result = BaseResponse(
+                                    message="Operation successful", data=result
+                                )
+                            else:
+                                result = BaseResponse(
+                                    message="Operation successful",
+                                    data={"result": result},
+                                )
                     logger.info(f"API success: {method} {path}")
                     return result
                 except HTTPException as e:
