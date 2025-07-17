@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, Path
 
 from app.api.deps import get_registered_user
 from app.core.api_decorator import delete_route, get_route, post_route
+from app.repositories.activity_log import ActivityLogRepository
 from app.repositories.invitation import InvitationRepository
 from app.schemas.invitation import (
     AcceptInvitationResponse,
@@ -113,6 +114,23 @@ def accept_invitation(
 
         if not success:
             raise HTTPException(status_code=400, detail=message)
+
+        # Log the user link addition for both users
+        # For the invitee (current user)
+        ActivityLogRepository.log_user_link_add(
+            user_id=invitee.id,
+            linked_user_email=inviter.email,
+            linked_user_name=UserRepository.get_user_settings(inviter.id)["name"]
+            or inviter.email,
+        )
+
+        # For the inviter
+        ActivityLogRepository.log_user_link_add(
+            user_id=inviter.id,
+            linked_user_email=invitee.email,
+            linked_user_name=UserRepository.get_user_settings(invitee.id)["name"]
+            or invitee.email,
+        )
 
         return AcceptInvitationResponse(message=message, linked_user=linked_user_info)
     except HTTPException:

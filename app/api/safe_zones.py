@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException
 
 from app.api.deps import get_registered_user
 from app.core.api_decorator import delete_route, get_route, post_route
+from app.repositories.activity_log import ActivityLogRepository
 from app.repositories.safe_zones import SafeZonesRepository
 from app.repositories.user import UserRepository
 from app.schemas.user import GetSafeZoneResponse, Role, SafeZone, User
@@ -85,6 +86,15 @@ def upsert_safe_zone_api(
     success = SafeZonesRepository.upsert_safe_zone(target_user.id, safe_zone, user.id)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to upsert safe zone")
+
+    # Log the safe zone upsert
+    ActivityLogRepository.log_safe_zone_upsert(
+        user_id=user.id,
+        target_user_id=target_user.id,
+        location_name=safe_zone.location.name,
+        radius=safe_zone.radius,
+    )
+
     return safe_zone
 
 
@@ -102,7 +112,20 @@ def delete_safe_zone_api(target_email: str, user: User = Depends(get_registered_
         raise HTTPException(
             status_code=403, detail="No permission to delete this user's safe zone"
         )
+
+    # Get the safe zone before deleting for logging
+    existing_safe_zone = SafeZonesRepository.get_safe_zone(target_user.id)
+
     success = SafeZonesRepository.delete_safe_zone(target_user.id)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete safe zone")
+
+    # Log the safe zone deletion
+    if existing_safe_zone:
+        ActivityLogRepository.log_safe_zone_delete(
+            user_id=user.id,
+            target_user_id=target_user.id,
+            location_name=existing_safe_zone.location.name,
+        )
+
     return {"message": "Safe zone deleted successfully"}

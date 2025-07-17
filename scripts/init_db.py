@@ -205,12 +205,15 @@ def create_tables(engine=None):
         activity_logs_table_sql = """
         CREATE TABLE IF NOT EXISTS activity_logs (
             id VARCHAR(36) PRIMARY KEY,
-            user_id VARCHAR(36) NOT NULL,
+            user_id VARCHAR(36) NOT NULL COMMENT 'User ID who performed the action',
+            target_user_id VARCHAR(36) NULL COMMENT 'Target user ID affected by the action (shared operations only)',
             action VARCHAR(50) NOT NULL,
             detail JSON,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            INDEX idx_logs_user_id (user_id)
+            FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_logs_user_id (user_id),
+            INDEX idx_logs_target_user_id (target_user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
 

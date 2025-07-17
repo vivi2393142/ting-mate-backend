@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI
 
 from app.api import (
+    activity_log,
     assistant,
     auth,
     invitation,
@@ -32,4 +33,5 @@ auto_register_routes(router, shared_notes)
 auto_register_routes(router, safe_zones)
 auto_register_routes(router, user_locations)
 auto_register_routes(router, places)
+auto_register_routes(router, activity_log)
 app.include_router(router)

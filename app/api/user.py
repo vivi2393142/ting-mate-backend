@@ -4,6 +4,7 @@ from fastapi import Body, Depends, HTTPException
 
 from app.api.deps import get_current_user_or_create_anonymous, get_registered_user
 from app.core.api_decorator import get_route, post_route, put_route
+from app.repositories.activity_log import ActivityLogRepository
 from app.repositories.user import UserRepository
 from app.schemas.user import (
     Role,
@@ -98,6 +99,24 @@ def update_user_settings_api(
     if not success:
         raise ValueError("Failed to update user settings")
 
+    # Log the activity
+    updated_fields = {}
+    if settings_update.name is not None:
+        updated_fields["name"] = settings_update.name
+    if settings_update.textSize is not None:
+        updated_fields["textSize"] = settings_update.textSize
+    if settings_update.displayMode is not None:
+        updated_fields["displayMode"] = settings_update.displayMode
+    if settings_update.reminder is not None:
+        updated_fields["reminder"] = settings_update.reminder
+    if settings_update.emergency_contacts is not None:
+        updated_fields["emergency_contacts"] = settings_update.emergency_contacts
+    if settings_update.allow_share_location is not None:
+        updated_fields["allow_share_location"] = settings_update.allow_share_location
+
+    if updated_fields:
+        ActivityLogRepository.log_user_settings_update(user.id, updated_fields)
+
     # Return updated user information (same as get_current_user_api)
     settings = UserRepository.get_user_settings(user.id)
     if not settings:
@@ -184,10 +203,16 @@ def transition_user_role_api(
             detail="Cannot transition user with existing links. Please remove all links first.",
         )
 
+    # Store old role for logging
+    old_role = user.role.value
+
     # Update the user role in the database
     success = UserRepository.update_user_role(user.id, target_role)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to transition user role")
+
+    # Log the role transition
+    ActivityLogRepository.log_role_transition(user.id, old_role, target_role.value)
 
     # Remove all tasks for this user (only carereceiver will have tasks, but this is safe for both roles)
     from app.repositories.task import TaskRepository

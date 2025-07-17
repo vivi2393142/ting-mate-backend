@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, Path
 
 from app.api.deps import get_current_user_or_create_anonymous
 from app.core.api_decorator import delete_route, get_route, post_route, put_route
+from app.repositories.activity_log import ActivityLogRepository
 from app.repositories.task import TaskRepository
 from app.schemas.task import (
     CreateTaskRequest,
@@ -51,6 +52,16 @@ def create_task(
         )
 
     task = TaskRepository.create_task(actual_owner_id, req, user.id)
+
+    # Log the task creation
+    reminder_time = f"{req.reminder_time.hour:02d}:{req.reminder_time.minute:02d}"
+    ActivityLogRepository.log_task_create(
+        user_id=user.id,
+        target_user_id=actual_owner_id,
+        task_title=req.title,
+        reminder_time=reminder_time,
+    )
+
     return TaskResponse(task=task)
 
 
@@ -87,9 +98,40 @@ def update_task_api(
     task_id: str = Path(...),
     updates: UpdateTaskFields = None,
 ):
+    # Get the task before updating for logging
+    actual_owner_id = get_actual_linked_carereceiver_id(user.id, user.role)
+    if not actual_owner_id:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    original_task = TaskRepository.get_task_by_id(actual_owner_id, task_id)
+    if not original_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
     task = update_task(user.id, user.role, task_id, updates)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    # Log the task update
+    updated_fields = {}
+    if updates.title is not None:
+        updated_fields["title"] = updates.title
+    if updates.reminder_time is not None:
+        updated_fields["reminder_time"] = (
+            f"{updates.reminder_time.hour:02d}:{updates.reminder_time.minute:02d}"
+        )
+    if updates.recurrence is not None:
+        updated_fields["recurrence"] = (
+            f"{updates.recurrence.interval} {updates.recurrence.unit}"
+        )
+
+    if updated_fields:
+        ActivityLogRepository.log_task_update(
+            user_id=user.id,
+            target_user_id=actual_owner_id,
+            task_title=task.title,
+            updated_fields=updated_fields,
+        )
+
     return TaskResponse(task=task)
 
 
@@ -105,9 +147,27 @@ def update_task_status_api(
     task_id: str = Path(...),
     status: UpdateTaskStatusRequest = None,
 ):
+    # Get the task before updating for logging
+    actual_owner_id = get_actual_linked_carereceiver_id(user.id, user.role)
+    if not actual_owner_id:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    original_task = TaskRepository.get_task_by_id(actual_owner_id, task_id)
+    if not original_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
     task = update_task_status(user.id, user.role, task_id, status.completed)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    # Log the task status update
+    ActivityLogRepository.log_task_status_update(
+        user_id=user.id,
+        target_user_id=actual_owner_id,
+        task_title=task.title,
+        completed=status.completed,
+    )
+
     return TaskResponse(task=task)
 
 
@@ -121,7 +181,22 @@ def delete_task_api(
     user: User = Depends(get_current_user_or_create_anonymous),
     task_id: str = Path(...),
 ):
+    # Get the task before deleting for logging
+    actual_owner_id = get_actual_linked_carereceiver_id(user.id, user.role)
+    if not actual_owner_id:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    original_task = TaskRepository.get_task_by_id(actual_owner_id, task_id)
+    if not original_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
     success = delete_task(user.id, user.role, task_id)
     if not success:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    # Log the task deletion
+    ActivityLogRepository.log_task_delete(
+        user_id=user.id, target_user_id=actual_owner_id, task_title=original_task.title
+    )
+
     return {"message": "Task deleted successfully"}
