@@ -463,7 +463,7 @@ async def voice_command(
     encoding: Optional[str] = Form(
         None, description="Audio encoding format (optional)"
     ),
-):
+) -> dict:
     try:
         audio_content = await audio_file.read()
         ext = (
@@ -480,11 +480,24 @@ async def voice_command(
             )
 
         # Call text_command to handle the transcript
-        return await text_command(
+        result = await text_command(
             user=user,
             user_input=transcript,
             conversation_id=conversation_id,
         )
+        # Map the result to a standard response structure
+        data = {
+            "conversation_id": None,
+            "status": None,
+            "further_question": None,
+            "user_input": transcript,
+        }
+        if result.data:
+            data["conversation_id"] = result.data["conversation_id"]
+            data["status"] = result.data["status"]
+            data["further_question"] = result.data["further_question"]
+        return data
+
     except HTTPException:
         raise
     except Exception as e:
