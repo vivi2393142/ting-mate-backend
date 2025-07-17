@@ -393,6 +393,18 @@ async def execute_pending_task(
                     hour=task_data.get("reminder_hour", 0),
                     minute=task_data.get("reminder_minute", 0),
                 )
+            if (
+                "recurrence_interval" in task_data
+                and "recurrence_unit" in task_data
+                and "recurrence_days_of_week" in task_data
+                and "recurrence_days_of_month" in task_data
+            ):
+                updates.recurrence = RecurrenceRule(
+                    interval=task_data["recurrence_interval"],
+                    unit=RecurrenceUnit(task_data["recurrence_unit"]),
+                    days_of_week=task_data["recurrence_days_of_week"],
+                    days_of_month=task_data["recurrence_days_of_month"],
+                )
             if "completed" in task_data:
                 updates.completed = task_data["completed"]
 

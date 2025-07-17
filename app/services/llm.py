@@ -56,6 +56,7 @@ class CreateTaskSlot(BaseTaskSlot):
 
 class UpdateTaskSlot(BaseTaskSlot):
     task_id: Optional[str] = None
+    completed: Optional[bool] = None
 
 
 class CreateTaskResult(BaseModel):
@@ -100,12 +101,22 @@ class LLMService:
         "- 'every month on the 15th' -> interval=1, unit=month, days_of_month=[15]\n"
         "- 'every 3 months on the 1st and 15th' -> interval=3, unit=month, days_of_month=[1,15]\n"
     )
-    TASK_SELECTION_BASE = (
+    TASK_SELECTION_BASE_WITH_CANDIDATES = (
         "Given 'user_input', 'task_candidates' and 'previous_result', "
         "identify which task the user wants to {action}. "
-        "If you can determine a single task, set status to CONFIRMED and return the selected 'task_id' in result. "
-        "If you cannot determine a single task, set status to INCOMPLETE, provide a 'further_question', and "
-        "return a list of possible candidates' task_id. "
+        "If you can confidently identify one task, set status to CONFIRMED and return its 'task_id' in the result"
+        "(do not show this ID to the user)."
+        "If you're not sure which task the user meant, set status to INCOMPLETE. In that case, "
+        "provide a clear 'further_question' using only task titles (never mention task_id). "
+        "Never use 'task_id' in any part of the message shown to the user."
+    )
+    TASK_SELECTION_BASE_WITH_ACTIVE_TASKS = (
+        "Given 'user_input', 'active_tasks' and 'previous_response', "
+        "identify which task the user wants to {action}. "
+        "If you can confidently identify one task, take it out as 'task_id' in response schema."
+        "If you're not sure which task the user meant, set status to INCOMPLETE. In that case, "
+        "provide a clear 'further_question' using only task titles (never mention task_id). "
+        "Never use 'task_id' in any part of the message shown to the user."
     )
 
     def __init__(self):
@@ -149,6 +160,8 @@ class LLMService:
             "- If task_id is present and none of updated fields is present, set status to INCOMPLETE and provide a 'further_question'. "  # noqa: E501
             "- If task_id is present and one of any updated fields is present, set status to CONFIRMED and no 'further_question'. "  # noqa: E501
             "- If fail to continue, set status to FAILED and no further_question. "
+            "In order to find the 'task_id', you can follow this way:"
+            f"{self.TASK_SELECTION_BASE_WITH_ACTIVE_TASKS.format(action='update')}"
             f"{self.SCHEMA_INSTRUCTION}\n"
             f"{self.RECURRENCE_EXAMPLES}"
             "active_tasks: {active_tasks}\n"
@@ -157,7 +170,7 @@ class LLMService:
         )
         self.delete_task_prompt = (
             f"{self.BASE_ROLE} "
-            f"{self.TASK_SELECTION_BASE.format(action='delete')} "
+            f"{self.TASK_SELECTION_BASE_WITH_CANDIDATES.format(action='delete')} "
             f"{self.SCHEMA_INSTRUCTION}\n"
             "task_candidates: {task_candidates}\n"
             "user_input: {user_input}\n"
