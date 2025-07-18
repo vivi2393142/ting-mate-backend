@@ -8,6 +8,7 @@ from nanoid import generate
 
 from app.api.deps import get_current_user_or_create_anonymous
 from app.core.api_decorator import post_route
+from app.repositories.activity_log import ActivityLogRepository
 from app.repositories.assistant_conversation import AssistantConversationRepository
 from app.repositories.assistant_pending_task import AssistantPendingTaskRepository
 from app.repositories.task import TaskRepository
@@ -26,6 +27,7 @@ from app.schemas.task import (
 )
 from app.schemas.user import Role, User
 from app.services.llm import IntentType, Status, llm_service
+from app.services.notification_manager import NotificationManager
 from app.services.speech import speech_service
 from app.services.task import get_tasks_for_user
 from app.utils.user import get_actual_linked_carereceiver_id
@@ -383,6 +385,20 @@ async def execute_pending_task(
                 actual_owner_id, create_request, user.id
             )
 
+            # Log the task creation
+            reminder_time = f"{create_request.reminder_time.hour:02d}:{create_request.reminder_time.minute:02d}"
+            ActivityLogRepository.log_task_create(
+                user_id=user.id,
+                target_user_id=actual_owner_id,
+                task_title=create_request.title,
+                reminder_time=reminder_time,
+            )
+
+            # Add notification
+            NotificationManager.notify_task_created(
+                user_id=actual_owner_id, linked_user_id=user.id, task_id=result.id
+            )
+
         elif pending_task.intent_type == PendingIntentType.UPDATE_TASK:
             # Update task
             updates = UpdateTaskFields()
@@ -420,6 +436,27 @@ async def execute_pending_task(
                 actual_owner_id, task_data["task_id"], updates
             )
 
+            # Log the task update
+            updated_fields = {}
+            if updates.title is not None:
+                updated_fields["title"] = updates.title
+            if updates.reminder_time is not None:
+                updated_fields["reminder_time"] = (
+                    f"{updates.reminder_time.hour:02d}:{updates.reminder_time.minute:02d}"
+                )
+            if updates.recurrence is not None:
+                updated_fields["recurrence"] = (
+                    f"{updates.recurrence.interval} {updates.recurrence.unit}"
+                )
+
+            if updated_fields:
+                ActivityLogRepository.log_task_update(
+                    user_id=user.id,
+                    target_user_id=actual_owner_id,
+                    task_title=result.title,
+                    updated_fields=updated_fields,
+                )
+
         elif pending_task.intent_type == PendingIntentType.DELETE_TASK:
             # Delete task
             # Get actual task owner ID for caregiver
@@ -430,13 +467,25 @@ async def execute_pending_task(
                     detail="No linked carereceiver found for caregiver",
                 )
 
-            success = TaskRepository.delete_task(actual_owner_id, task_data["result"])
+            task_id = task_data["result"]
+            success = TaskRepository.delete_task(actual_owner_id, task_id)
             if not success:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Task not found or already deleted",
                 )
             result = {"deleted": True}
+
+            task = TaskRepository.get_task_by_id(actual_owner_id, task_id)
+            if task:
+                title = getattr(task, "title", "Unknown task")
+
+            # Log the task deletion
+            ActivityLogRepository.log_task_delete(
+                user_id=user.id,
+                target_user_id=actual_owner_id,
+                task_title=title if title else "Unknown task",
+            )
 
         # Delete the pending task after successful execution
         AssistantPendingTaskRepository.delete_pending_task(pending_task.id)

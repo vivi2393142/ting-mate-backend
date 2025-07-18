@@ -12,6 +12,7 @@ from app.schemas.task import (
     UpdateTaskStatusRequest,
 )
 from app.schemas.user import User
+from app.services.notification_manager import NotificationManager
 from app.services.task import (
     delete_task,
     get_tasks_for_user,
@@ -60,6 +61,13 @@ def create_task(
         target_user_id=actual_owner_id,
         task_title=req.title,
         reminder_time=reminder_time,
+    )
+
+    # Add notification
+    NotificationManager.notify_task_created(
+        user_id=actual_owner_id,
+        linked_user_id=user.id,
+        task_id=task.id,
     )
 
     return TaskResponse(task=task)

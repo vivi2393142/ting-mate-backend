@@ -23,6 +23,7 @@ def api_route(
     description: str = "",
     tags: List[str] = None,
     status_code: int = 200,
+    response_class=None,
 ):
     import inspect
 
@@ -75,6 +76,7 @@ def api_route(
                 "description": description,
                 "tags": tags or [],
                 "status_code": status_code,
+                "response_class": response_class,
             }
             return wrapper
         else:
@@ -116,6 +118,7 @@ def api_route(
                 "description": description,
                 "tags": tags or [],
                 "status_code": status_code,
+                "response_class": response_class,
             }
             return wrapper
 
@@ -145,11 +148,16 @@ def auto_register_routes(router, module):
         if hasattr(func, "_route_config"):
             config = func._route_config
             route_method = getattr(router, config["method"].lower())
-            route_method(
-                config["path"],
+            route_kwargs = dict(
                 response_model=config["response_model"],
                 summary=config["summary"],
                 description=config["description"],
                 tags=config["tags"],
                 status_code=config["status_code"],
+            )
+            if config.get("response_class") is not None:
+                route_kwargs["response_class"] = config["response_class"]
+            route_method(
+                config["path"],
+                **route_kwargs,
             )(func)

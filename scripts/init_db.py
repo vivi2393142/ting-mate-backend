@@ -217,6 +217,24 @@ def create_tables(engine=None):
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
 
+        # Create notifications table
+        notifications_table_sql = """
+        CREATE TABLE IF NOT EXISTS notifications (
+            id VARCHAR(36) PRIMARY KEY,
+            user_id VARCHAR(36) NOT NULL,
+            category ENUM('TASK', 'USER_SETTING', 'SAFEZONE', 'SYSTEM') NOT NULL,
+            message TEXT NOT NULL,
+            payload JSON,
+            level VARCHAR(16) NOT NULL DEFAULT 'GENERAL',
+            is_read BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_notifications_user_id (user_id),
+            INDEX idx_notifications_category (category),
+            INDEX idx_notifications_level (level)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+
         # Create llm_logs table
         llm_logs_table_sql = """
         CREATE TABLE IF NOT EXISTS llm_logs (
@@ -287,6 +305,9 @@ def create_tables(engine=None):
 
         execute_update(activity_logs_table_sql)
         logger.info("Activity logs table created successfully")
+
+        execute_update(notifications_table_sql)
+        logger.info("Notifications table created successfully")
 
         execute_update(llm_logs_table_sql)
         logger.info("LLM logs table created successfully")

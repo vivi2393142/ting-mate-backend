@@ -1,3 +1,4 @@
+import os
 import uuid
 
 import pytest
@@ -6,6 +7,13 @@ from fastapi.testclient import TestClient
 from nanoid import generate
 
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def setup_testing_environment():
+    os.environ["TESTING"] = "true"
+    yield
+    os.environ.pop("TESTING", None)
 
 
 @pytest.fixture
