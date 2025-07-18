@@ -245,6 +245,122 @@ def test_no_notification_when_within_safe_zone(client, register_and_link_users):
     assert not any("has left the safe zone" in n["message"] for n in notif_list)
 
 
+def test_mark_notifications_as_read(client, register_and_link_users):
+    """Test marking notifications as read."""
+    # Create linked users
+    users = register_and_link_users
+    caregiver_token = users["caregiver"]["token"]
+    carereceiver_token = users["carereceiver"]["token"]
+
+    # Create a task to generate notification
+    task_payload = {
+        "title": "Test Task",
+        "icon": "check",
+        "reminder_time": {"hour": 9, "minute": 0},
+        "recurrence": None,
+    }
+    create_resp = client.post(
+        "/tasks", json=task_payload, headers=auth_headers(caregiver_token)
+    )
+    assert create_resp.status_code == 200
+
+    # Get notifications for carereceiver
+    response = client.get("/notifications", headers=auth_headers(carereceiver_token))
+    assert response.status_code == 200
+    notif_list = response.json()
+    assert len(notif_list) > 0
+
+    # Get notification IDs to mark as read
+    notification_ids = [notif["id"] for notif in notif_list]
+
+    # Mark notifications as read
+    mark_read_resp = client.put(
+        "/notifications/mark-read",
+        json=notification_ids,
+        headers=auth_headers(carereceiver_token),
+    )
+    assert mark_read_resp.status_code == 200
+    mark_read_data = mark_read_resp.json()
+    assert mark_read_data["marked_count"] == len(notification_ids)
+    assert mark_read_data["total_count"] == len(notification_ids)
+
+    # Verify notifications are marked as read
+    response = client.get("/notifications", headers=auth_headers(carereceiver_token))
+    assert response.status_code == 200
+    notif_list = response.json()
+    for notif in notif_list:
+        if notif["id"] in notification_ids:
+            assert notif["is_read"] is True
+
+
+def test_mark_notifications_as_read_empty_list(client, register_and_link_users):
+    """Test marking notifications as read with empty list."""
+    # Create linked users
+    users = register_and_link_users
+    carereceiver_token = users["carereceiver"]["token"]
+
+    # Try to mark empty list as read
+    mark_read_resp = client.put(
+        "/notifications/mark-read",
+        json=[],
+        headers=auth_headers(carereceiver_token),
+    )
+    assert mark_read_resp.status_code == 400
+    assert "empty" in mark_read_resp.json()["detail"]
+
+
+def test_mark_notifications_as_read_invalid_id(client, register_and_link_users):
+    """Test marking notifications as read with invalid notification ID."""
+    # Create linked users
+    users = register_and_link_users
+    carereceiver_token = users["carereceiver"]["token"]
+
+    # Try to mark non-existent notification as read
+    mark_read_resp = client.put(
+        "/notifications/mark-read",
+        json=["invalid-notification-id"],
+        headers=auth_headers(carereceiver_token),
+    )
+    assert mark_read_resp.status_code == 404
+    assert "not found" in mark_read_resp.json()["detail"]
+
+
+def test_mark_notifications_as_read_unauthorized(client, register_and_link_users):
+    """Test marking notifications as read for notifications that don't belong to user."""
+    # Create linked users
+    users = register_and_link_users
+    caregiver_token = users["caregiver"]["token"]
+    carereceiver_token = users["carereceiver"]["token"]
+
+    # Create a task to generate notification for carereceiver
+    task_payload = {
+        "title": "Test Task",
+        "icon": "check",
+        "reminder_time": {"hour": 9, "minute": 0},
+        "recurrence": None,
+    }
+    create_resp = client.post(
+        "/tasks", json=task_payload, headers=auth_headers(caregiver_token)
+    )
+    assert create_resp.status_code == 200
+
+    # Get notifications for carereceiver
+    response = client.get("/notifications", headers=auth_headers(carereceiver_token))
+    assert response.status_code == 200
+    notif_list = response.json()
+    assert len(notif_list) > 0
+
+    # Try to mark carereceiver's notification as read using caregiver token
+    notification_ids = [notif["id"] for notif in notif_list]
+    mark_read_resp = client.put(
+        "/notifications/mark-read",
+        json=notification_ids,
+        headers=auth_headers(caregiver_token),
+    )
+    assert mark_read_resp.status_code == 403
+    assert "does not belong to current user" in mark_read_resp.json()["detail"]
+
+
 def test_no_self_notification(client, register_and_link_users):
     """Test that users don't receive notifications for their own actions."""
     # Create linked users
