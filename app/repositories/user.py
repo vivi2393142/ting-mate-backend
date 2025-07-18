@@ -323,3 +323,72 @@ class UserRepository:
         except Exception as e:
             print(f"Error updating user role: {e}")
             return False
+
+    @staticmethod
+    def get_group_user_ids(user_id: str) -> list:
+        """
+        Get all user ids in the same group (the carereceiver and all linked caregivers).
+        The user's role is determined automatically.
+        If user is a caregiver, find their linked carereceiver, then get all caregivers linked to that carereceiver.
+        If user is a carereceiver, get all caregivers linked to them, plus themselves.
+        Returns a list of user ids (str).
+        """
+        try:
+            user = UserRepository.get_user(user_id, "id")
+            if not user or not user.role:
+                return []
+            role = user.role
+            if role == Role.CAREGIVER:
+                # Find the carereceiver linked to this caregiver
+                query = "SELECT carereceiver_id FROM user_links WHERE caregiver_id = %s"
+                result = execute_query(query, (user_id,))
+                if not result:
+                    return []
+                carereceiver_id = result[0]["carereceiver_id"]
+            else:
+                carereceiver_id = user_id
+
+            # Find all caregivers linked to this carereceiver
+            caregivers_query = (
+                "SELECT caregiver_id FROM user_links WHERE carereceiver_id = %s"
+            )
+            caregivers = execute_query(caregivers_query, (carereceiver_id,))
+            caregiver_ids = (
+                [row["caregiver_id"] for row in caregivers] if caregivers else []
+            )
+
+            # Include the carereceiver themselves
+            user_ids = caregiver_ids + [carereceiver_id]
+            return user_ids
+        except Exception as e:
+            print(f"Error getting group user ids: {e}")
+            return []
+
+    @staticmethod
+    def get_group_users(user_id: str) -> list:
+        """
+        Get all users in the same group (the carereceiver and all linked caregivers).
+        The user's role is determined automatically.
+        If user is a caregiver, find their linked carereceiver, then get all caregivers linked to that carereceiver.
+        If user is a carereceiver, get all caregivers linked to them, plus themselves.
+        Returns a list of dicts: {id, email, name}.
+        """
+        try:
+            user_ids = UserRepository.get_group_user_ids(user_id)
+            users = []
+            for uid in user_ids:
+                user = UserRepository.get_user(uid, "id")
+                if user:
+                    settings = UserRepository.get_user_settings(uid)
+                    name = settings["name"] if settings and "name" in settings else None
+                    users.append(
+                        {
+                            "id": user.id,
+                            "email": user.email,
+                            "name": name,
+                        }
+                    )
+            return users
+        except Exception as e:
+            print(f"Error getting group users: {e}")
+            return []

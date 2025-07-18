@@ -12,6 +12,7 @@ from app.schemas.invitation import (
 )
 from app.schemas.user import User
 from app.services.link import LinkService
+from app.services.notification_manager import NotificationManager
 
 
 @post_route(
@@ -130,6 +131,12 @@ def accept_invitation(
             linked_user_email=invitee.email,
             linked_user_name=UserRepository.get_user_settings(invitee.id)["name"]
             or invitee.email,
+        )
+
+        # Add notification for inviter
+        NotificationManager.notify_linked_account(
+            user_id=inviter.id,
+            linked_user_id=invitee.id,
         )
 
         return AcceptInvitationResponse(message=message, linked_user=linked_user_info)

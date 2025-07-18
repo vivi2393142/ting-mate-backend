@@ -2,14 +2,17 @@ from fastapi import Depends, HTTPException
 
 from app.api.deps import get_registered_user
 from app.core.api_decorator import get_route, post_route
+from app.repositories.safe_zones import SafeZonesRepository
 from app.repositories.user import UserRepository
 from app.repositories.user_locations import UserLocationsRepository
-from app.schemas.user import User
+from app.schemas.user import Role, User
 from app.schemas.user_locations import (
     ShouldGetLocationResponse,
     UserLocationCreate,
     UserLocationResponse,
 )
+from app.services.location_utils import is_within_safe_zone
+from app.services.notification_manager import NotificationManager
 
 
 @get_route(
@@ -73,8 +76,45 @@ def update_location(
     )
     if not ok:
         raise HTTPException(status_code=500, detail="Failed to update location.")
+
+    # Check safe zone and send notifications if needed
+    _check_safe_zone_and_notify(user, location.latitude, location.longitude)
+
     loc = UserLocationsRepository.get_location(user.id)
     return loc
+
+
+def _check_safe_zone_and_notify(user: User, latitude: float, longitude: float):
+    """Check if user is within safe zone and send notifications if not."""
+    # Only check for carereceivers
+    if user.role != Role.CARERECEIVER:
+        return
+
+    # Get user's safe zone
+    safe_zone = SafeZonesRepository.get_safe_zone(user.id)
+    if not safe_zone:
+        return  # No safe zone set, no need to check
+
+    # Check if user is within safe zone
+    is_within = is_within_safe_zone(
+        user_lat=latitude,
+        user_lon=longitude,
+        safe_zone_lat=safe_zone.location.latitude,
+        safe_zone_lon=safe_zone.location.longitude,
+        safe_zone_radius_meters=safe_zone.radius,
+    )
+
+    # If user is outside safe zone, notify linked caregivers
+    if not is_within:
+        # Get linked caregivers
+        links = UserRepository.get_user_links(user.id, user.role)
+        for link in links:
+            linked_user = UserRepository.get_user(link["email"], by="email")
+            if linked_user and linked_user.role == Role.CAREGIVER:
+                NotificationManager.notify_safezone_warning(
+                    user_id=linked_user.id,
+                    monitor_user_id=user.id,
+                )
 
 
 @get_route(

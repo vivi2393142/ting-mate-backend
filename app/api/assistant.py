@@ -12,6 +12,7 @@ from app.repositories.activity_log import ActivityLogRepository
 from app.repositories.assistant_conversation import AssistantConversationRepository
 from app.repositories.assistant_pending_task import AssistantPendingTaskRepository
 from app.repositories.task import TaskRepository
+from app.repositories.user import UserRepository
 from app.schemas.assistant_conversation import (
     AssistantConversationCreate,
     AssistantConversationUpdate,
@@ -457,6 +458,30 @@ async def execute_pending_task(
                     updated_fields=updated_fields,
                 )
 
+            # Add notification for task completed or updated
+            if updates.completed is not None and updates.completed is True:
+                group_user_ids = UserRepository.get_group_user_ids(user.id)
+                for user_in_group in group_user_ids:
+                    if user_in_group != user.id:
+                        NotificationManager.notify_task_completed(
+                            user_id=user_in_group,
+                            executor_user_id=user.id,
+                            task_id=result.id,
+                        )
+            elif (
+                updates.title is not None
+                or updates.reminder_time is not None
+                or updates.recurrence is not None
+            ):
+                group_user_ids = UserRepository.get_group_user_ids(user.id)
+                for user_in_group in group_user_ids:
+                    if user_in_group != user.id:
+                        NotificationManager.notify_task_updated(
+                            user_id=user_in_group,
+                            executor_user_id=user.id,
+                            task_id=result.id,
+                        )
+
         elif pending_task.intent_type == PendingIntentType.DELETE_TASK:
             # Delete task
             # Get actual task owner ID for caregiver
@@ -486,6 +511,15 @@ async def execute_pending_task(
                 target_user_id=actual_owner_id,
                 task_title=title if title else "Unknown task",
             )
+            # Add notification for task deleted
+            group_user_ids = UserRepository.get_group_user_ids(user.id)
+            for user_in_group in group_user_ids:
+                if user_in_group != user.id:
+                    NotificationManager.notify_task_deleted(
+                        user_id=user_in_group,
+                        executor_user_id=user.id,
+                        task_id=task_id,
+                    )
 
         # Delete the pending task after successful execution
         AssistantPendingTaskRepository.delete_pending_task(pending_task.id)

@@ -4,6 +4,7 @@ from app.api.deps import get_current_user_or_create_anonymous
 from app.core.api_decorator import delete_route, get_route, post_route, put_route
 from app.repositories.activity_log import ActivityLogRepository
 from app.repositories.task import TaskRepository
+from app.repositories.user import UserRepository
 from app.schemas.task import (
     CreateTaskRequest,
     TaskListResponse,
@@ -64,11 +65,14 @@ def create_task(
     )
 
     # Add notification
-    NotificationManager.notify_task_created(
-        user_id=actual_owner_id,
-        linked_user_id=user.id,
-        task_id=task.id,
-    )
+    group_user_ids = UserRepository.get_group_user_ids(user.id)
+    for user_in_group in group_user_ids:
+        if user_in_group != user.id:
+            NotificationManager.notify_task_created(
+                user_id=user_in_group,
+                executor_user_id=user.id,
+                task_id=task.id,
+            )
 
     return TaskResponse(task=task)
 
@@ -140,6 +144,16 @@ def update_task_api(
             updated_fields=updated_fields,
         )
 
+    # Add notification for task update
+    group_user_ids = UserRepository.get_group_user_ids(user.id)
+    for user_in_group in group_user_ids:
+        if user_in_group != user.id:
+            NotificationManager.notify_task_updated(
+                user_id=user_in_group,
+                executor_user_id=user.id,
+                task_id=task.id,
+            )
+
     return TaskResponse(task=task)
 
 
@@ -176,6 +190,17 @@ def update_task_status_api(
         completed=status.completed,
     )
 
+    # Add notification for task completed
+    if status.completed is True:
+        group_user_ids = UserRepository.get_group_user_ids(user.id)
+        for user_in_group in group_user_ids:
+            if user_in_group != user.id:
+                NotificationManager.notify_task_completed(
+                    user_id=user_in_group,
+                    executor_user_id=user.id,
+                    task_id=task.id,
+                )
+
     return TaskResponse(task=task)
 
 
@@ -206,5 +231,15 @@ def delete_task_api(
     ActivityLogRepository.log_task_delete(
         user_id=user.id, target_user_id=actual_owner_id, task_title=original_task.title
     )
+
+    # Add notification for task deleted
+    group_user_ids = UserRepository.get_group_user_ids(user.id)
+    for user_in_group in group_user_ids:
+        if user_in_group != user.id:
+            NotificationManager.notify_task_deleted(
+                user_id=user_in_group,
+                executor_user_id=user.id,
+                task_id=task_id,
+            )
 
     return {"message": "Task deleted successfully"}

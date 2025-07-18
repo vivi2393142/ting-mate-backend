@@ -50,11 +50,11 @@ class NotificationManager:
         return "Task"
 
     @staticmethod
-    def notify_safezone_warning(user_id: str, linked_user_id: str) -> Optional[str]:
+    def notify_safezone_warning(user_id: str, monitor_user_id: str) -> Optional[str]:
         """Notify when a user leaves the safe zone (Warning level)"""
-        name = NotificationManager._get_user_name(linked_user_id)
+        name = NotificationManager._get_user_name(monitor_user_id)
         message = f"{name} has left the safe zone."
-        payload = {"linked_user_id": linked_user_id, "action": "SAFEZONE_LEFT"}
+        payload = {"monitor_user_id": monitor_user_id, "action": "SAFEZONE_LEFT"}
         NotificationManager._create_and_push_notification(
             user_id=user_id,
             category=NotificationCategory.SAFEZONE,
@@ -65,13 +65,13 @@ class NotificationManager:
 
     @staticmethod
     def notify_task_updated(
-        user_id: str, linked_user_id: str, task_id: str
+        user_id: str, executor_user_id: str, task_id: str
     ) -> Optional[str]:
-        name = NotificationManager._get_user_name(linked_user_id)
+        name = NotificationManager._get_user_name(executor_user_id)
         task_title = NotificationManager._get_task_title(task_id)
         message = f"{name} updated task: {task_title}."
         payload = {
-            "linked_user_id": linked_user_id,
+            "executor_user_id": executor_user_id,
             "task_id": task_id,
             "action": "TASK_UPDATED",
         }
@@ -85,13 +85,13 @@ class NotificationManager:
 
     @staticmethod
     def notify_task_deleted(
-        user_id: str, linked_user_id: str, task_id: str
+        user_id: str, executor_user_id: str, task_id: str
     ) -> Optional[str]:
-        name = NotificationManager._get_user_name(linked_user_id)
+        name = NotificationManager._get_user_name(executor_user_id)
         task_title = NotificationManager._get_task_title(task_id)
         message = f"{name} deleted task: {task_title}."
         payload = {
-            "linked_user_id": linked_user_id,
+            "executor_user_id": executor_user_id,
             "task_id": task_id,
             "action": "TASK_DELETED",
         }
@@ -105,13 +105,13 @@ class NotificationManager:
 
     @staticmethod
     def notify_task_created(
-        user_id: str, linked_user_id: str, task_id: str
+        user_id: str, executor_user_id: str, task_id: str
     ) -> Optional[str]:
-        name = NotificationManager._get_user_name(linked_user_id)
+        name = NotificationManager._get_user_name(executor_user_id)
         task_title = NotificationManager._get_task_title(task_id)
         message = f"{name} created a new task: {task_title}."
         payload = {
-            "linked_user_id": linked_user_id,
+            "executor_user_id": executor_user_id,
             "task_id": task_id,
             "action": "TASK_CREATED",
         }
@@ -125,13 +125,13 @@ class NotificationManager:
 
     @staticmethod
     def notify_task_completed(
-        user_id: str, linked_user_id: str, task_id: str
+        user_id: str, executor_user_id: str, task_id: str
     ) -> Optional[str]:
-        name = NotificationManager._get_user_name(linked_user_id)
+        name = NotificationManager._get_user_name(executor_user_id)
         task_title = NotificationManager._get_task_title(task_id)
         message = f"{name} marked {task_title} as done."
         payload = {
-            "linked_user_id": linked_user_id,
+            "executor_user_id": executor_user_id,
             "task_id": task_id,
             "action": "TASK_COMPLETED",
         }
