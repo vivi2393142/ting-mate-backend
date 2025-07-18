@@ -6,6 +6,10 @@ from app.api.notification import push_notification_to_sse
 from app.repositories.notification import NotificationRepository
 from app.repositories.user import UserRepository
 from app.schemas.notification import NotificationCategory, NotificationLevel
+from app.services.reminder_utils import (
+    should_send_safe_zone_notification,
+    should_send_task_notification,
+)
 
 
 class NotificationManager:
@@ -52,6 +56,10 @@ class NotificationManager:
     @staticmethod
     def notify_safezone_warning(user_id: str, monitor_user_id: str) -> Optional[str]:
         """Notify when a user leaves the safe zone (Warning level)"""
+        # Check if user wants safe zone notifications
+        if not should_send_safe_zone_notification(user_id):
+            return None
+
         name = NotificationManager._get_user_name(monitor_user_id)
         message = f"{name} has left the safe zone."
         payload = {"monitor_user_id": monitor_user_id, "action": "SAFEZONE_LEFT"}
@@ -67,6 +75,10 @@ class NotificationManager:
     def notify_task_updated(
         user_id: str, executor_user_id: str, task_id: str
     ) -> Optional[str]:
+        # Check if user wants task change notifications
+        if not should_send_task_notification(user_id, "update"):
+            return None
+
         name = NotificationManager._get_user_name(executor_user_id)
         task_title = NotificationManager._get_task_title(task_id)
         message = f"{name} updated task: {task_title}."
@@ -87,6 +99,10 @@ class NotificationManager:
     def notify_task_deleted(
         user_id: str, executor_user_id: str, task_id: str
     ) -> Optional[str]:
+        # Check if user wants task change notifications
+        if not should_send_task_notification(user_id, "delete"):
+            return None
+
         name = NotificationManager._get_user_name(executor_user_id)
         task_title = NotificationManager._get_task_title(task_id)
         message = f"{name} deleted task: {task_title}."
@@ -107,6 +123,10 @@ class NotificationManager:
     def notify_task_created(
         user_id: str, executor_user_id: str, task_id: str
     ) -> Optional[str]:
+        # Check if user wants task notifications
+        if not should_send_task_notification(user_id, "create"):
+            return None
+
         name = NotificationManager._get_user_name(executor_user_id)
         task_title = NotificationManager._get_task_title(task_id)
         message = f"{name} created a new task: {task_title}."
@@ -127,6 +147,10 @@ class NotificationManager:
     def notify_task_completed(
         user_id: str, executor_user_id: str, task_id: str
     ) -> Optional[str]:
+        # Check if user wants task completion notifications
+        if not should_send_task_notification(user_id, "complete"):
+            return None
+
         name = NotificationManager._get_user_name(executor_user_id)
         task_title = NotificationManager._get_task_title(task_id)
         message = f"{name} marked {task_title} as done."

@@ -281,8 +281,11 @@ def test_mark_notifications_as_read(client, register_and_link_users):
     )
     assert mark_read_resp.status_code == 200
     mark_read_data = mark_read_resp.json()
-    assert mark_read_data["marked_count"] == len(notification_ids)
-    assert mark_read_data["total_count"] == len(notification_ids)
+    assert mark_read_data["success"] is True
+    assert "data" in mark_read_data
+    data = mark_read_data["data"]
+    assert data["marked_count"] == len(notification_ids)
+    assert data["total_count"] == len(notification_ids)
 
     # Verify notifications are marked as read
     response = client.get("/notifications", headers=auth_headers(carereceiver_token))
@@ -359,6 +362,110 @@ def test_mark_notifications_as_read_unauthorized(client, register_and_link_users
     )
     assert mark_read_resp.status_code == 403
     assert "does not belong to current user" in mark_read_resp.json()["detail"]
+
+
+def test_notification_disabled_by_reminder_settings(client, register_and_link_users):
+    """Test that notifications are not sent when disabled in reminder settings."""
+    # Create linked users
+    users = register_and_link_users
+    caregiver_token = users["caregiver"]["token"]
+    carereceiver_token = users["carereceiver"]["token"]
+
+    # Disable task notifications for carereceiver
+    reminder_settings = {
+        "task_reminder": False,
+        "task_change_notification": False,
+        "task_completion_notification": False,
+        "safe_zone_exit_reminder": False,
+        "overdue_reminder": {"enabled": False, "delay_minutes": 30, "repeat": False},
+    }
+
+    settings_resp = client.put(
+        "/user/settings",
+        json={"reminder": reminder_settings},
+        headers=auth_headers(carereceiver_token),
+    )
+    assert settings_resp.status_code == 200
+
+    # Create task as caregiver
+    task_payload = {
+        "title": "Test Task",
+        "icon": "check",
+        "reminder_time": {"hour": 9, "minute": 0},
+        "recurrence": None,
+    }
+    create_resp = client.post(
+        "/tasks", json=task_payload, headers=auth_headers(caregiver_token)
+    )
+    assert create_resp.status_code == 200
+
+    # Check that carereceiver does NOT receive notification (disabled)
+    response = client.get("/notifications", headers=auth_headers(carereceiver_token))
+    assert response.status_code == 200
+    notif_list = response.json()
+    assert not any("created a new task" in n["message"] for n in notif_list)
+
+
+def test_safe_zone_notification_disabled_by_reminder_settings(
+    client, register_and_link_users
+):
+    """Test that safe zone notifications are not sent when disabled in reminder settings."""
+    # Create linked users
+    users = register_and_link_users
+    caregiver_token = users["caregiver"]["token"]
+    carereceiver_token = users["carereceiver"]["token"]
+    carereceiver_email = users["carereceiver"]["email"]
+
+    # Disable safe zone notifications for caregiver
+    reminder_settings = {
+        "task_reminder": True,
+        "task_change_notification": True,
+        "task_completion_notification": True,
+        "safe_zone_exit_reminder": False,  # Disable safe zone notifications
+        "overdue_reminder": {"enabled": True, "delay_minutes": 30, "repeat": True},
+    }
+
+    settings_resp = client.put(
+        "/user/settings",
+        json={"reminder": reminder_settings},
+        headers=auth_headers(caregiver_token),
+    )
+    assert settings_resp.status_code == 200
+
+    # Create safe zone for carereceiver
+    safe_zone_data = {
+        "location": {
+            "name": "Home",
+            "address": "123 Main St, Bristol",
+            "latitude": 51.4529183,
+            "longitude": -2.5994918,
+        },
+        "radius": 1000,  # 1km radius
+    }
+    safe_zone_resp = client.post(
+        f"/safe-zone/{carereceiver_email}",
+        json=safe_zone_data,
+        headers=auth_headers(caregiver_token),
+    )
+    assert safe_zone_resp.status_code == 200
+
+    # Update carereceiver location to outside safe zone
+    location_payload = {
+        "latitude": 51.5000,  # Far from safe zone center
+        "longitude": -2.6000,
+    }
+    location_resp = client.post(
+        "/user/location",
+        json=location_payload,
+        headers=auth_headers(carereceiver_token),
+    )
+    assert location_resp.status_code == 200
+
+    # Check that caregiver does NOT receive safe zone notification (disabled)
+    response = client.get("/notifications", headers=auth_headers(caregiver_token))
+    assert response.status_code == 200
+    notif_list = response.json()
+    assert not any("has left the safe zone" in n["message"] for n in notif_list)
 
 
 def test_no_self_notification(client, register_and_link_users):

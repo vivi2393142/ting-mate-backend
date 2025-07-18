@@ -111,10 +111,16 @@ def _check_safe_zone_and_notify(user: User, latitude: float, longitude: float):
         for link in links:
             linked_user = UserRepository.get_user(link["email"], by="email")
             if linked_user and linked_user.role == Role.CAREGIVER:
-                NotificationManager.notify_safezone_warning(
-                    user_id=linked_user.id,
-                    monitor_user_id=user.id,
+                # Check if caregiver wants safe zone notifications
+                from app.services.reminder_utils import (
+                    should_send_safe_zone_notification,
                 )
+
+                if should_send_safe_zone_notification(linked_user.id):
+                    NotificationManager.notify_safezone_warning(
+                        user_id=linked_user.id,
+                        monitor_user_id=user.id,
+                    )
 
 
 @get_route(

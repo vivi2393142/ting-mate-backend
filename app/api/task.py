@@ -68,11 +68,15 @@ def create_task(
     group_user_ids = UserRepository.get_group_user_ids(user.id)
     for user_in_group in group_user_ids:
         if user_in_group != user.id:
-            NotificationManager.notify_task_created(
-                user_id=user_in_group,
-                executor_user_id=user.id,
-                task_id=task.id,
-            )
+            # Check user's reminder settings before sending notification
+            from app.services.reminder_utils import should_send_task_notification
+
+            if should_send_task_notification(user_in_group, "create"):
+                NotificationManager.notify_task_created(
+                    user_id=user_in_group,
+                    executor_user_id=user.id,
+                    task_id=task.id,
+                )
 
     return TaskResponse(task=task)
 
@@ -148,11 +152,15 @@ def update_task_api(
     group_user_ids = UserRepository.get_group_user_ids(user.id)
     for user_in_group in group_user_ids:
         if user_in_group != user.id:
-            NotificationManager.notify_task_updated(
-                user_id=user_in_group,
-                executor_user_id=user.id,
-                task_id=task.id,
-            )
+            # Check user's reminder settings before sending notification
+            from app.services.reminder_utils import should_send_task_notification
+
+            if should_send_task_notification(user_in_group, "update"):
+                NotificationManager.notify_task_updated(
+                    user_id=user_in_group,
+                    executor_user_id=user.id,
+                    task_id=task.id,
+                )
 
     return TaskResponse(task=task)
 
@@ -195,11 +203,15 @@ def update_task_status_api(
         group_user_ids = UserRepository.get_group_user_ids(user.id)
         for user_in_group in group_user_ids:
             if user_in_group != user.id:
-                NotificationManager.notify_task_completed(
-                    user_id=user_in_group,
-                    executor_user_id=user.id,
-                    task_id=task.id,
-                )
+                # Check user's reminder settings before sending notification
+                from app.services.reminder_utils import should_send_task_notification
+
+                if should_send_task_notification(user_in_group, "complete"):
+                    NotificationManager.notify_task_completed(
+                        user_id=user_in_group,
+                        executor_user_id=user.id,
+                        task_id=task.id,
+                    )
 
     return TaskResponse(task=task)
 
@@ -236,10 +248,14 @@ def delete_task_api(
     group_user_ids = UserRepository.get_group_user_ids(user.id)
     for user_in_group in group_user_ids:
         if user_in_group != user.id:
-            NotificationManager.notify_task_deleted(
-                user_id=user_in_group,
-                executor_user_id=user.id,
-                task_id=task_id,
-            )
+            # Check user's reminder settings before sending notification
+            from app.services.reminder_utils import should_send_task_notification
+
+            if should_send_task_notification(user_in_group, "delete"):
+                NotificationManager.notify_task_deleted(
+                    user_id=user_in_group,
+                    executor_user_id=user.id,
+                    task_id=task_id,
+                )
 
     return {"message": "Task deleted successfully"}

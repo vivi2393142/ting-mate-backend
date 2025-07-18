@@ -35,6 +35,21 @@ class UserLink(BaseModel):
     name: str
 
 
+# Reminder Settings schemas
+class OverdueReminderSettings(BaseModel):
+    enabled: bool = True
+    delay_minutes: int = 30
+    repeat: bool = True
+
+
+class ReminderSettings(BaseModel):
+    task_reminder: bool = True
+    overdue_reminder: OverdueReminderSettings = OverdueReminderSettings()
+    safe_zone_exit_reminder: bool = True
+    task_completion_notification: bool = True
+    task_change_notification: bool = True
+
+
 # Emergency Contact schemas
 class ContactMethod(str, Enum):
     PHONE = "PHONE"
