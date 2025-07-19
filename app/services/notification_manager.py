@@ -188,7 +188,7 @@ class NotificationManager:
         payload = {"linked_user_id": linked_user_id, "action": "LINKED_ACCOUNT"}
         NotificationManager._create_and_push_notification(
             user_id=user_id,
-            category=NotificationCategory.USER_SETTING,
+            category=NotificationCategory.LINKING_ACCOUNT,
             message=message,
             payload=payload,
             level=NotificationLevel.GENERAL,

@@ -9,7 +9,7 @@ class NotificationCategory(str, Enum):
     """Notification category for frontend to determine refresh logic"""
 
     TASK = "TASK"
-    USER_SETTING = "USER_SETTING"
+    LINKING_ACCOUNT = "LINKING_ACCOUNT"
     SAFEZONE = "SAFEZONE"
     SYSTEM = "SYSTEM"
 

@@ -222,7 +222,7 @@ def create_tables(engine=None):
         CREATE TABLE IF NOT EXISTS notifications (
             id VARCHAR(36) PRIMARY KEY,
             user_id VARCHAR(36) NOT NULL,
-            category ENUM('TASK', 'USER_SETTING', 'SAFEZONE', 'SYSTEM') NOT NULL,
+            category ENUM('TASK', 'LINKING_ACCOUNT', 'SAFEZONE', 'SYSTEM') NOT NULL,
             message TEXT NOT NULL,
             payload JSON,
             level VARCHAR(16) NOT NULL DEFAULT 'GENERAL',
