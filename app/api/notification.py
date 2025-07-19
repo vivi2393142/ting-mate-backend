@@ -143,36 +143,19 @@ async def notifications_sse(user=Depends(get_registered_user)):
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
-# Periodic cleanup of inactive connections
-async def cleanup_inactive_queues():
-    """Clean up inactive queues every 5 minutes"""
-    while True:
-        try:
-            await asyncio.sleep(300)  # Wait 5 minutes
-            inactive_users = []
-
-            for user_id, queue in user_queues.items():
-                # Check if queue is empty and no active consumers
-                if queue.empty() and not queue._getters:
-                    inactive_users.append(user_id)
-                    logger.info(f"Cleaning up inactive queue for user {user_id}")
-
-            # Remove inactive queues
-            for user_id in inactive_users:
-                user_queues.pop(user_id, None)
-
-            if inactive_users:
-                logger.info(f"Cleaned up {len(inactive_users)} inactive queues")
-
-        except Exception as e:
-            logger.warning(f"Error during queue cleanup: {e}")
+# Manual cleanup function for testing
+def cleanup_all_queues():
+    """Manually cleanup all queues (for testing/debugging)"""
+    global user_queues
+    count = len(user_queues)
+    user_queues.clear()
+    logger.info(f"Manually cleaned up {count} queues")
+    return count
 
 
-# Start cleanup task when module loads
-try:
-    # Try to get running loop to start cleanup task
-    loop = asyncio.get_running_loop()
-    loop.create_task(cleanup_inactive_queues())
-except RuntimeError:
-    # No running loop, cleanup will start when first SSE connects
-    pass
+# Optional: Add a debug endpoint to manually cleanup
+@router.post("/notifications/cleanup", include_in_schema=False)
+async def manual_cleanup():
+    """Manual cleanup endpoint for testing"""
+    count = cleanup_all_queues()
+    return {"message": f"Cleaned up {count} queues", "cleaned_count": count}
