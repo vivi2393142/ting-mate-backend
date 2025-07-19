@@ -35,9 +35,10 @@ def get_current_user_api(user: User = Depends(get_current_user_or_create_anonymo
     if not user.email:
         linked_list = []
     else:
-        links = UserRepository.get_user_links(user.id, user.role)
+        links = UserRepository.get_group_users(user.id, include_self=False)
         linked_list = [
-            UserLink(email=link["email"], name=link["name"]) for link in links
+            UserLink(email=link["email"], name=link["name"], role=link["role"])
+            for link in links
         ]
 
     # Compose reminder (pass through or use default if missing)
@@ -126,9 +127,10 @@ def update_user_settings_api(
     if not user.email:
         linked_list = []
     else:
-        links = UserRepository.get_user_links(user.id, user.role)
+        links = UserRepository.get_group_users(user.id, include_self=False)
         linked_list = [
-            UserLink(email=link["email"], name=link["name"]) for link in links
+            UserLink(email=link["email"], name=link["name"], role=Role(link["role"]))
+            for link in links
         ]
 
     # Compose reminder (pass through or use default if missing)

@@ -325,7 +325,7 @@ class UserRepository:
             return False
 
     @staticmethod
-    def get_group_user_ids(user_id: str) -> list:
+    def get_group_user_ids(user_id: str, include_self: bool = False) -> list:
         """
         Get all user ids in the same group (the carereceiver and all linked caregivers).
         The user's role is determined automatically.
@@ -359,13 +359,18 @@ class UserRepository:
 
             # Include the carereceiver themselves
             user_ids = caregiver_ids + [carereceiver_id]
+
+            # If include_self is False, exclude the user themselves
+            if not include_self:
+                user_ids = [uid for uid in user_ids if uid != user_id]
+
             return user_ids
         except Exception as e:
             print(f"Error getting group user ids: {e}")
             return []
 
     @staticmethod
-    def get_group_users(user_id: str) -> list:
+    def get_group_users(user_id: str, include_self: bool = False) -> list:
         """
         Get all users in the same group (the carereceiver and all linked caregivers).
         The user's role is determined automatically.
@@ -374,7 +379,9 @@ class UserRepository:
         Returns a list of dicts: {id, email, name}.
         """
         try:
-            user_ids = UserRepository.get_group_user_ids(user_id)
+            user_ids = UserRepository.get_group_user_ids(
+                user_id, include_self=include_self
+            )
             users = []
             for uid in user_ids:
                 user = UserRepository.get_user(uid, "id")
@@ -386,6 +393,7 @@ class UserRepository:
                             "id": user.id,
                             "email": user.email,
                             "name": name,
+                            "role": user.role,
                         }
                     )
             return users

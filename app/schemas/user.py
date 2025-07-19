@@ -33,6 +33,7 @@ class UserDisplayMode(str, Enum):
 class UserLink(BaseModel):
     email: EmailStr
     name: str
+    role: Role
 
 
 # Reminder Settings schemas

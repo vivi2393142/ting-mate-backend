@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -31,3 +31,12 @@ class NotificationData(BaseModel):
     level: NotificationLevel = NotificationLevel.GENERAL
     is_read: bool = False
     created_at: datetime
+
+
+class NotificationListResponse(BaseModel):
+    """List of notifications with pagination info"""
+
+    notifications: List[NotificationData]
+    total: int
+    limit: int
+    offset: int

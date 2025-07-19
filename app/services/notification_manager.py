@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from typing import Optional
 
@@ -10,6 +11,8 @@ from app.services.reminder_utils import (
     should_send_safe_zone_notification,
     should_send_task_notification,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class NotificationManager:
@@ -34,7 +37,15 @@ class NotificationManager:
                 notification_id=notification_id
             )
             if notification:
-                asyncio.create_task(push_notification_to_sse(user_id, notification))
+                try:
+                    # Try to push notification to SSE if there's an active connection
+                    asyncio.create_task(push_notification_to_sse(user_id, notification))
+                except RuntimeError as e:
+                    # No running event loop - user might not have active SSE connection
+                    logger.info(f"SSE push failed (no active connection): {e}")
+                except Exception as e:
+                    # Other errors - log but don't fail the main operation
+                    logger.warning(f"SSE push failed: {e}")
 
     @staticmethod
     def _get_user_name(user_id: str) -> str:
@@ -150,10 +161,9 @@ class NotificationManager:
         # Check if user wants task completion notifications
         if not should_send_task_notification(user_id, "complete"):
             return None
-
         name = NotificationManager._get_user_name(executor_user_id)
         task_title = NotificationManager._get_task_title(task_id)
-        message = f"{name} marked {task_title} as done."
+        message = f"{name} marked '{task_title}' as done."
         payload = {
             "executor_user_id": executor_user_id,
             "task_id": task_id,

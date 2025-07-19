@@ -104,6 +104,33 @@ class NotificationRepository:
             return []
 
     @staticmethod
+    def get_notifications_count_by_user(
+        user_id: str,
+        category: Optional[NotificationCategory] = None,
+        is_read: Optional[bool] = None,
+        level: Optional[NotificationLevel] = None,
+    ) -> int:
+        """Get total count of notifications for a user, with optional filters"""
+        try:
+            sql = "SELECT COUNT(*) as total_count FROM notifications WHERE user_id = %s"
+            params = [user_id]
+            if category:
+                sql += " AND category = %s"
+                params.append(category.value)
+            if is_read is not None:
+                sql += " AND is_read = %s"
+                params.append(is_read)
+            if level:
+                sql += " AND level = %s"
+                params.append(level.value)
+
+            results = execute_query(sql, params)
+            return results[0]["total_count"] if results else 0
+        except Exception as e:
+            print(f"Error getting notification count: {e}")
+            return 0
+
+    @staticmethod
     def get_notifications_by_id(
         notification_id: str,
     ) -> Optional[NotificationData]:

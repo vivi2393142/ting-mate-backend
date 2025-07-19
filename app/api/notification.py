@@ -12,6 +12,7 @@ from app.schemas.notification import (
     NotificationCategory,
     NotificationData,
     NotificationLevel,
+    NotificationListResponse,
 )
 
 router = APIRouter()
@@ -31,7 +32,7 @@ async def notification_event_generator(user_id: str):
     path="/notifications",
     summary="Get Notifications",
     description="Get notification list for the current user.",
-    response_model=list[NotificationData],
+    response_model=NotificationListResponse,
     tags=["notifications"],
 )
 def get_notifications_api(
@@ -44,11 +45,26 @@ def get_notifications_api(
     ),
     offset: int = Query(0, ge=0, description="Number of notifications to skip"),
 ):
-    return NotificationRepository.get_notifications_by_user(
+    notifications = NotificationRepository.get_notifications_by_user(
         user_id=user.id,
         category=category,
         is_read=is_read,
         level=level,
+        limit=limit,
+        offset=offset,
+    )
+
+    # Get total count
+    total_count = NotificationRepository.get_notifications_count_by_user(
+        user_id=user.id,
+        category=category,
+        is_read=is_read,
+        level=level,
+    )
+
+    return NotificationListResponse(
+        notifications=notifications,
+        total=total_count,
         limit=limit,
         offset=offset,
     )
