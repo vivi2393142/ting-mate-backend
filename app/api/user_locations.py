@@ -13,6 +13,8 @@ from app.schemas.user_locations import (
 )
 from app.services.location_utils import is_within_safe_zone
 from app.services.notification_manager import NotificationManager
+from app.services.reminder_utils import should_send_safe_zone_notification
+from app.utils.safe_block import safe_block
 
 
 @get_route(
@@ -105,18 +107,18 @@ def _check_safe_zone_and_notify(user: User, latitude: float, longitude: float):
     )
 
     # If user is outside safe zone, notify linked caregivers
-    if not is_within:
-        # Get linked caregivers
-        links = UserRepository.get_user_links(user.id, user.role)
-        for link in links:
-            linked_user = UserRepository.get_user(link["email"], by="email")
-            if linked_user and linked_user.role == Role.CAREGIVER:
+    with safe_block("safe zone notification"):
+        if not is_within:
+            # Get linked caregivers
+            links = UserRepository.get_user_links(user.id, user.role)
+            for link in links:
+                linked_user = UserRepository.get_user(link["email"], by="email")
                 # Check if caregiver wants safe zone notifications
-                from app.services.reminder_utils import (
-                    should_send_safe_zone_notification,
-                )
-
-                if should_send_safe_zone_notification(linked_user.id):
+                if (
+                    linked_user
+                    and linked_user.role == Role.CAREGIVER
+                    and should_send_safe_zone_notification(linked_user.id)
+                ):
                     NotificationManager.notify_safezone_warning(
                         user_id=linked_user.id,
                         monitor_user_id=user.id,

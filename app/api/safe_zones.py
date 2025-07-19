@@ -6,6 +6,7 @@ from app.repositories.activity_log import ActivityLogRepository
 from app.repositories.safe_zones import SafeZonesRepository
 from app.repositories.user import UserRepository
 from app.schemas.user import GetSafeZoneResponse, Role, SafeZone, User
+from app.utils.safe_block import safe_block
 
 
 def _check_safe_zone_permission(requester, target_user):
@@ -88,12 +89,13 @@ def upsert_safe_zone_api(
         raise HTTPException(status_code=500, detail="Failed to upsert safe zone")
 
     # Log the safe zone upsert
-    ActivityLogRepository.log_safe_zone_upsert(
-        user_id=user.id,
-        target_user_id=target_user.id,
-        location_name=safe_zone.location.name,
-        radius=safe_zone.radius,
-    )
+    with safe_block("safe zone upsert logging"):
+        ActivityLogRepository.log_safe_zone_upsert(
+            user_id=user.id,
+            target_user_id=target_user.id,
+            location_name=safe_zone.location.name,
+            radius=safe_zone.radius,
+        )
 
     return safe_zone
 
@@ -121,11 +123,12 @@ def delete_safe_zone_api(target_email: str, user: User = Depends(get_registered_
         raise HTTPException(status_code=500, detail="Failed to delete safe zone")
 
     # Log the safe zone deletion
-    if existing_safe_zone:
-        ActivityLogRepository.log_safe_zone_delete(
-            user_id=user.id,
-            target_user_id=target_user.id,
-            location_name=existing_safe_zone.location.name,
-        )
+    with safe_block("safe zone deletion logging"):
+        if existing_safe_zone:
+            ActivityLogRepository.log_safe_zone_delete(
+                user_id=user.id,
+                target_user_id=target_user.id,
+                location_name=existing_safe_zone.location.name,
+            )
 
     return {"message": "Safe zone deleted successfully"}

@@ -13,6 +13,7 @@ from app.schemas.invitation import (
 from app.schemas.user import User
 from app.services.link import LinkService
 from app.services.notification_manager import NotificationManager
+from app.utils.safe_block import safe_block
 
 
 @post_route(
@@ -118,26 +119,29 @@ def accept_invitation(
 
         # Log the user link addition for both users
         # For the invitee (current user)
-        ActivityLogRepository.log_user_link_add(
-            user_id=invitee.id,
-            linked_user_email=inviter.email,
-            linked_user_name=UserRepository.get_user_settings(inviter.id)["name"]
-            or inviter.email,
-        )
+        with safe_block("invitee link addition logging"):
+            ActivityLogRepository.log_user_link_add(
+                user_id=invitee.id,
+                linked_user_email=inviter.email,
+                linked_user_name=UserRepository.get_user_settings(inviter.id)["name"]
+                or inviter.email,
+            )
 
         # For the inviter
-        ActivityLogRepository.log_user_link_add(
-            user_id=inviter.id,
-            linked_user_email=invitee.email,
-            linked_user_name=UserRepository.get_user_settings(invitee.id)["name"]
-            or invitee.email,
-        )
+        with safe_block("inviter link addition logging"):
+            ActivityLogRepository.log_user_link_add(
+                user_id=inviter.id,
+                linked_user_email=invitee.email,
+                linked_user_name=UserRepository.get_user_settings(invitee.id)["name"]
+                or invitee.email,
+            )
 
         # Add notification for inviter
-        NotificationManager.notify_linked_account(
-            user_id=inviter.id,
-            linked_user_id=invitee.id,
-        )
+        with safe_block("inviter link addition notification"):
+            NotificationManager.notify_linked_account(
+                user_id=inviter.id,
+                linked_user_id=invitee.id,
+            )
 
         return AcceptInvitationResponse(message=message, linked_user=linked_user_info)
     except HTTPException:

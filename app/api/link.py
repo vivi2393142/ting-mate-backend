@@ -6,6 +6,7 @@ from app.repositories.activity_log import ActivityLogRepository
 from app.repositories.user import UserRepository
 from app.schemas.user import User
 from app.services.link import LinkService
+from app.utils.safe_block import safe_block
 
 
 @delete_route(
@@ -33,12 +34,15 @@ def remove_user_link(
             raise HTTPException(status_code=400, detail="Failed to remove link")
 
         # Log the user link removal
-        ActivityLogRepository.log_user_link_remove(
-            user_id=user.id,
-            linked_user_email=target_user.email,
-            linked_user_name=UserRepository.get_user_settings(target_user.id)["name"]
-            or target_user.email,
-        )
+        with safe_block("user link removal logging"):
+            ActivityLogRepository.log_user_link_remove(
+                user_id=user.id,
+                linked_user_email=target_user.email,
+                linked_user_name=UserRepository.get_user_settings(target_user.id)[
+                    "name"
+                ]
+                or target_user.email,
+            )
 
         return {"message": "Link removed successfully"}
     except HTTPException:

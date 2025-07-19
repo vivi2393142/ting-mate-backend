@@ -31,6 +31,7 @@ from app.services.llm import IntentType, Status, llm_service
 from app.services.notification_manager import NotificationManager
 from app.services.speech import speech_service
 from app.services.task import get_tasks_for_user
+from app.utils.safe_block import safe_block
 from app.utils.user import get_actual_linked_carereceiver_id
 
 logger = logging.getLogger(__name__)
@@ -386,19 +387,21 @@ async def execute_pending_task(
                 actual_owner_id, create_request, user.id
             )
 
-            # Log the task creation
-            reminder_time = f"{create_request.reminder_time.hour:02d}:{create_request.reminder_time.minute:02d}"
-            ActivityLogRepository.log_task_create(
-                user_id=user.id,
-                target_user_id=actual_owner_id,
-                task_title=create_request.title,
-                reminder_time=reminder_time,
-            )
+            # Safely log the task creation
+            with safe_block("task creation logging"):
+                reminder_time = f"{create_request.reminder_time.hour:02d}:{create_request.reminder_time.minute:02d}"
+                ActivityLogRepository.log_task_create(
+                    user_id=user.id,
+                    target_user_id=actual_owner_id,
+                    task_title=create_request.title,
+                    reminder_time=reminder_time,
+                )
 
-            # Add notification
-            NotificationManager.notify_task_created(
-                user_id=actual_owner_id, linked_user_id=user.id, task_id=result.id
-            )
+            # Safely add notification
+            with safe_block("task creation notification"):
+                NotificationManager.notify_task_created(
+                    user_id=actual_owner_id, linked_user_id=user.id, task_id=result.id
+                )
 
         elif pending_task.intent_type == PendingIntentType.UPDATE_TASK:
             # Update task
@@ -437,45 +440,45 @@ async def execute_pending_task(
                 actual_owner_id, task_data["task_id"], updates
             )
 
-            # Log the task update
-            updated_fields = {}
-            if updates.title is not None:
-                updated_fields["title"] = updates.title
-            if updates.reminder_time is not None:
-                updated_fields["reminder_time"] = (
-                    f"{updates.reminder_time.hour:02d}:{updates.reminder_time.minute:02d}"
-                )
-            if updates.recurrence is not None:
-                updated_fields["recurrence"] = (
-                    f"{updates.recurrence.interval} {updates.recurrence.unit}"
-                )
+            # Safely log the task update
+            with safe_block("task update logging"):
+                updated_fields = {}
+                if updates.title is not None:
+                    updated_fields["title"] = updates.title
+                if updates.reminder_time is not None:
+                    updated_fields["reminder_time"] = (
+                        f"{updates.reminder_time.hour:02d}:{updates.reminder_time.minute:02d}"
+                    )
+                if updates.recurrence is not None:
+                    updated_fields["recurrence"] = (
+                        f"{updates.recurrence.interval} {updates.recurrence.unit}"
+                    )
 
-            if updated_fields:
-                ActivityLogRepository.log_task_update(
-                    user_id=user.id,
-                    target_user_id=actual_owner_id,
-                    task_title=result.title,
-                    updated_fields=updated_fields,
-                )
+                if updated_fields:
+                    ActivityLogRepository.log_task_update(
+                        user_id=user.id,
+                        target_user_id=actual_owner_id,
+                        task_title=result.title,
+                        updated_fields=updated_fields,
+                    )
 
-            # Add notification for task completed or updated
-            if updates.completed is not None and updates.completed is True:
-                group_user_ids = UserRepository.get_group_user_ids(user.id)
-                for user_in_group in group_user_ids:
-                    if user_in_group != user.id:
+            # Safely add notification for task completed or updated
+            with safe_block("task update notification"):
+                if updates.completed is not None and updates.completed is True:
+                    group_user_ids = UserRepository.get_group_user_ids(user.id)
+                    for user_in_group in group_user_ids:
                         NotificationManager.notify_task_completed(
                             user_id=user_in_group,
                             executor_user_id=user.id,
                             task_id=result.id,
                         )
-            elif (
-                updates.title is not None
-                or updates.reminder_time is not None
-                or updates.recurrence is not None
-            ):
-                group_user_ids = UserRepository.get_group_user_ids(user.id)
-                for user_in_group in group_user_ids:
-                    if user_in_group != user.id:
+                elif (
+                    updates.title is not None
+                    or updates.reminder_time is not None
+                    or updates.recurrence is not None
+                ):
+                    group_user_ids = UserRepository.get_group_user_ids(user.id)
+                    for user_in_group in group_user_ids:
                         NotificationManager.notify_task_updated(
                             user_id=user_in_group,
                             executor_user_id=user.id,
@@ -505,16 +508,17 @@ async def execute_pending_task(
             if task:
                 title = getattr(task, "title", "Unknown task")
 
-            # Log the task deletion
-            ActivityLogRepository.log_task_delete(
-                user_id=user.id,
-                target_user_id=actual_owner_id,
-                task_title=title if title else "Unknown task",
-            )
-            # Add notification for task deleted
-            group_user_ids = UserRepository.get_group_user_ids(user.id)
-            for user_in_group in group_user_ids:
-                if user_in_group != user.id:
+            # Safely log the task deletion
+            with safe_block("task deletion logging"):
+                ActivityLogRepository.log_task_delete(
+                    user_id=user.id,
+                    target_user_id=actual_owner_id,
+                    task_title=title if title else "Unknown task",
+                )
+            # Safely add notification for task deleted
+            with safe_block("task deletion notification"):
+                group_user_ids = UserRepository.get_group_user_ids(user.id)
+                for user_in_group in group_user_ids:
                     NotificationManager.notify_task_deleted(
                         user_id=user_in_group,
                         executor_user_id=user.id,

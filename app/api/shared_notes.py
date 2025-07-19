@@ -16,6 +16,7 @@ from app.schemas.user import (
     User,
     UserInfo,
 )
+from app.utils.safe_block import safe_block
 
 
 @get_route(
@@ -111,11 +112,12 @@ def create_shared_note_api(
             raise HTTPException(status_code=400, detail="Failed to create shared note")
 
         # Log the shared note creation
-        ActivityLogRepository.log_shared_note_create(
-            user_id=user.id,
-            target_user_id=carereceiver_id,
-            note_title=note_create.title,
-        )
+        with safe_block("shared note creation logging"):
+            ActivityLogRepository.log_shared_note_create(
+                user_id=user.id,
+                target_user_id=carereceiver_id,
+                note_title=note_create.title,
+            )
 
         return note
     except HTTPException:
@@ -159,19 +161,20 @@ def update_shared_note_api(
             raise HTTPException(status_code=404, detail="Shared note not found")
 
         # Log the shared note update
-        updated_fields = {}
-        if note_update.title is not None:
-            updated_fields["title"] = note_update.title
-        if note_update.content is not None:
-            updated_fields["content"] = note_update.content
+        with safe_block("shared note update logging"):
+            updated_fields = {}
+            if note_update.title is not None:
+                updated_fields["title"] = note_update.title
+            if note_update.content is not None:
+                updated_fields["content"] = note_update.content
 
-        if updated_fields:
-            ActivityLogRepository.log_shared_note_update(
-                user_id=user.id,
-                target_user_id=original_note.carereceiver_id,
-                note_title=original_note.title,
-                updated_fields=updated_fields,
-            )
+            if updated_fields:
+                ActivityLogRepository.log_shared_note_update(
+                    user_id=user.id,
+                    target_user_id=original_note.carereceiver_id,
+                    note_title=original_note.title,
+                    updated_fields=updated_fields,
+                )
 
         return updated_note
     except HTTPException:
@@ -211,11 +214,12 @@ def delete_shared_note_api(
             raise HTTPException(status_code=404, detail="Shared note not found")
 
         # Log the shared note deletion
-        ActivityLogRepository.log_shared_note_delete(
-            user_id=user.id,
-            target_user_id=original_note.carereceiver_id,
-            note_title=original_note.title,
-        )
+        with safe_block("shared note deletion logging"):
+            ActivityLogRepository.log_shared_note_delete(
+                user_id=user.id,
+                target_user_id=original_note.carereceiver_id,
+                note_title=original_note.title,
+            )
 
         return {"message": "Shared note deleted successfully"}
     except HTTPException:
