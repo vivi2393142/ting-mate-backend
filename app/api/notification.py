@@ -1,31 +1,23 @@
 import asyncio
 import json
+import logging
 from typing import List
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from app.api.deps import get_current_user_or_create_anonymous
+from app.api.deps import get_current_user_or_create_anonymous, get_registered_user
 from app.core.api_decorator import get_route, put_route
 from app.repositories.notification import NotificationRepository
 from app.schemas.notification import (
     NotificationCategory,
-    NotificationData,
     NotificationLevel,
     NotificationListResponse,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
-
-
-async def notification_event_generator(user_id: str):
-    queue = user_queues.setdefault(user_id, asyncio.Queue())
-    try:
-        while True:
-            notification = await queue.get()
-            yield f"data: {json.dumps(notification)}\n\n"
-    except asyncio.CancelledError:
-        user_queues.pop(user_id, None)
 
 
 @get_route(
@@ -118,14 +110,32 @@ def mark_notifications_as_read_api(
 user_queues = {}
 
 
-@get_route(
-    path="/notifications/sse",
+async def notification_event_generator(user_id: str):
+    queue = user_queues.setdefault(user_id, asyncio.Queue())
+    try:
+        while True:
+            # Add timeout to prevent hanging connections
+            notification = await asyncio.wait_for(queue.get(), timeout=30)
+            yield f"data: {json.dumps(notification)}\n\n"
+    except asyncio.TimeoutError:
+        logger.info(f"Connection timeout for user {user_id}")
+    except asyncio.CancelledError:
+        logger.info(f"Connection cancelled for user {user_id}")
+    finally:
+        user_queues.pop(user_id, None)
+
+
+@router.get(
+    "/notifications/sse",
     summary="SSE Notification Stream",
-    description="Server-Sent Events for real-time notifications. Use EventSource to connect.",
+    description=(
+        "Server-Sent Events for real-time notifications. "
+        "This is a test endpoint that sends counter messages every 2 seconds. "
+        "Use EventSource to connect."
+    ),
     tags=["notifications"],
-    response_class=StreamingResponse,
 )
-async def notifications_sse(user=Depends(get_current_user_or_create_anonymous)):
+async def notifications_sse(user=Depends(get_registered_user)):
     async def event_stream():
         async for event in notification_event_generator(user.id):
             yield event
@@ -133,8 +143,36 @@ async def notifications_sse(user=Depends(get_current_user_or_create_anonymous)):
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
-# Helper for NotificationManager to push to SSE
-async def push_notification_to_sse(user_id: str, notification: NotificationData):
-    queue = user_queues.get(user_id)
-    if queue:
-        await queue.put(notification.model_dump())
+# Periodic cleanup of inactive connections
+async def cleanup_inactive_queues():
+    """Clean up inactive queues every 5 minutes"""
+    while True:
+        try:
+            await asyncio.sleep(300)  # Wait 5 minutes
+            inactive_users = []
+
+            for user_id, queue in user_queues.items():
+                # Check if queue is empty and no active consumers
+                if queue.empty() and not queue._getters:
+                    inactive_users.append(user_id)
+                    logger.info(f"Cleaning up inactive queue for user {user_id}")
+
+            # Remove inactive queues
+            for user_id in inactive_users:
+                user_queues.pop(user_id, None)
+
+            if inactive_users:
+                logger.info(f"Cleaned up {len(inactive_users)} inactive queues")
+
+        except Exception as e:
+            logger.warning(f"Error during queue cleanup: {e}")
+
+
+# Start cleanup task when module loads
+try:
+    # Try to get running loop to start cleanup task
+    loop = asyncio.get_running_loop()
+    loop.create_task(cleanup_inactive_queues())
+except RuntimeError:
+    # No running loop, cleanup will start when first SSE connects
+    pass

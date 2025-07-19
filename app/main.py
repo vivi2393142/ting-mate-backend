@@ -37,3 +37,6 @@ auto_register_routes(router, places)
 auto_register_routes(router, activity_log)
 auto_register_routes(router, notification)
 app.include_router(router)
+
+# Include SSE router in
+app.include_router(notification.router)

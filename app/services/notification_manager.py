@@ -3,7 +3,7 @@ import logging
 import os
 from typing import Optional
 
-from app.api.notification import push_notification_to_sse
+from app.api.notification import user_queues
 from app.repositories.notification import NotificationRepository
 from app.repositories.user import UserRepository
 from app.schemas.notification import NotificationCategory, NotificationLevel
@@ -31,21 +31,25 @@ class NotificationManager:
             payload=payload,
             level=level,
         )
-        # TODO: mock in testing
-        if os.getenv("TESTING") != "true" and notification_id:
-            notification = NotificationRepository.get_notifications_by_id(
-                notification_id=notification_id
-            )
-            if notification:
-                try:
-                    # Try to push notification to SSE if there's an active connection
-                    asyncio.create_task(push_notification_to_sse(user_id, notification))
-                except RuntimeError as e:
-                    # No running event loop - user might not have active SSE connection
-                    logger.info(f"SSE push failed (no active connection): {e}")
-                except Exception as e:
-                    # Other errors - log but don't fail the main operation
-                    logger.warning(f"SSE push failed: {e}")
+
+        # Send sse notification to user if user has active connection
+        queue = user_queues.get(user_id)
+        notification = NotificationRepository.get_notifications_by_id(
+            notification_id=notification_id
+        )
+        notificationJson = notification.model_dump(mode="json")
+        if os.getenv("TESTING") != "true" and queue and notificationJson:
+            try:
+                # Check if there's a running event loop
+                asyncio.get_running_loop()
+                # If there is, create a task
+                asyncio.create_task(queue.put(notificationJson))
+            except RuntimeError:
+                # No running event loop, execute directly
+                asyncio.run(queue.put(notificationJson))
+            except Exception as e:
+                # Other errors, log but don't interrupt the flow
+                logger.warning(f"Failed to push notification to user {user_id}: {e}")
 
     @staticmethod
     def _get_user_name(user_id: str) -> str:

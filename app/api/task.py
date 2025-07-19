@@ -14,12 +14,14 @@ from app.schemas.task import (
 )
 from app.schemas.user import User
 from app.services.notification_manager import NotificationManager
+from app.services.reminder_utils import should_send_task_notification
 from app.services.task import (
     delete_task,
     get_tasks_for_user,
     update_task,
     update_task_status,
 )
+from app.utils.safe_block import safe_block
 from app.utils.user import get_actual_linked_carereceiver_id
 
 
@@ -55,23 +57,24 @@ def create_task(
 
     task = TaskRepository.create_task(actual_owner_id, req, user.id)
 
-    # Log the task creation
-    reminder_time = f"{req.reminder_time.hour:02d}:{req.reminder_time.minute:02d}"
-    ActivityLogRepository.log_task_create(
-        user_id=user.id,
-        target_user_id=actual_owner_id,
-        task_title=req.title,
-        reminder_time=reminder_time,
-    )
+    # Safely log the task creation
+    with safe_block("task creation logging"):
+        reminder_time = f"{req.reminder_time.hour:02d}:{req.reminder_time.minute:02d}"
+        ActivityLogRepository.log_task_create(
+            user_id=user.id,
+            target_user_id=actual_owner_id,
+            task_title=req.title,
+            reminder_time=reminder_time,
+        )
 
-    # Add notification
-    group_user_ids = UserRepository.get_group_user_ids(user.id)
-    for user_in_group in group_user_ids:
-        if user_in_group != user.id:
+    # Safely add notification
+    with safe_block("task creation notification"):
+        group_user_ids = UserRepository.get_group_user_ids(user.id)
+        for user_in_group in group_user_ids:
             # Check user's reminder settings before sending notification
-            from app.services.reminder_utils import should_send_task_notification
-
-            if should_send_task_notification(user_in_group, "create"):
+            if user_in_group != user.id and should_send_task_notification(
+                user_in_group, "create"
+            ):
                 NotificationManager.notify_task_created(
                     user_id=user_in_group,
                     executor_user_id=user.id,
@@ -127,35 +130,36 @@ def update_task_api(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # Log the task update
-    updated_fields = {}
-    if updates.title is not None:
-        updated_fields["title"] = updates.title
-    if updates.reminder_time is not None:
-        updated_fields["reminder_time"] = (
-            f"{updates.reminder_time.hour:02d}:{updates.reminder_time.minute:02d}"
-        )
-    if updates.recurrence is not None:
-        updated_fields["recurrence"] = (
-            f"{updates.recurrence.interval} {updates.recurrence.unit}"
-        )
+    # Safely log the task update
+    with safe_block("task update logging"):
+        updated_fields = {}
+        if updates.title is not None:
+            updated_fields["title"] = updates.title
+        if updates.reminder_time is not None:
+            updated_fields["reminder_time"] = (
+                f"{updates.reminder_time.hour:02d}:{updates.reminder_time.minute:02d}"
+            )
+        if updates.recurrence is not None:
+            updated_fields["recurrence"] = (
+                f"{updates.recurrence.interval} {updates.recurrence.unit}"
+            )
 
-    if updated_fields:
-        ActivityLogRepository.log_task_update(
-            user_id=user.id,
-            target_user_id=actual_owner_id,
-            task_title=task.title,
-            updated_fields=updated_fields,
-        )
+        if updated_fields:
+            ActivityLogRepository.log_task_update(
+                user_id=user.id,
+                target_user_id=actual_owner_id,
+                task_title=task.title,
+                updated_fields=updated_fields,
+            )
 
-    # Add notification for task update
-    group_user_ids = UserRepository.get_group_user_ids(user.id)
-    for user_in_group in group_user_ids:
-        if user_in_group != user.id:
+    # Safely add notification for task update
+    with safe_block("task update notification"):
+        group_user_ids = UserRepository.get_group_user_ids(user.id)
+        for user_in_group in group_user_ids:
             # Check user's reminder settings before sending notification
-            from app.services.reminder_utils import should_send_task_notification
-
-            if should_send_task_notification(user_in_group, "update"):
+            if user_in_group != user.id and should_send_task_notification(
+                user_in_group, "update"
+            ):
                 NotificationManager.notify_task_updated(
                     user_id=user_in_group,
                     executor_user_id=user.id,
@@ -190,23 +194,24 @@ def update_task_status_api(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # Log the task status update
-    ActivityLogRepository.log_task_status_update(
-        user_id=user.id,
-        target_user_id=actual_owner_id,
-        task_title=task.title,
-        completed=status.completed,
-    )
+    # Safely log the task status update
+    with safe_block("task status logging"):
+        ActivityLogRepository.log_task_status_update(
+            user_id=user.id,
+            target_user_id=actual_owner_id,
+            task_title=task.title,
+            completed=status.completed,
+        )
 
-    # Add notification for task completed
-    if status.completed is True:
-        group_user_ids = UserRepository.get_group_user_ids(user.id)
-        for user_in_group in group_user_ids:
-            if user_in_group != user.id:
+    # Safely add notification for task completed
+    with safe_block("task completed notification"):
+        if status.completed is True:
+            group_user_ids = UserRepository.get_group_user_ids(user.id)
+            for user_in_group in group_user_ids:
                 # Check user's reminder settings before sending notification
-                from app.services.reminder_utils import should_send_task_notification
-
-                if should_send_task_notification(user_in_group, "complete"):
+                if user_in_group != user.id and should_send_task_notification(
+                    user_in_group, "complete"
+                ):
                     NotificationManager.notify_task_completed(
                         user_id=user_in_group,
                         executor_user_id=user.id,
@@ -239,19 +244,22 @@ def delete_task_api(
     if not success:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # Log the task deletion
-    ActivityLogRepository.log_task_delete(
-        user_id=user.id, target_user_id=actual_owner_id, task_title=original_task.title
-    )
+    # Safely log the task deletion
+    with safe_block("task deletion logging"):
+        ActivityLogRepository.log_task_delete(
+            user_id=user.id,
+            target_user_id=actual_owner_id,
+            task_title=original_task.title,
+        )
 
-    # Add notification for task deleted
-    group_user_ids = UserRepository.get_group_user_ids(user.id)
-    for user_in_group in group_user_ids:
-        if user_in_group != user.id:
+    # Safely add notification for task deleted
+    with safe_block("task deletion notification"):
+        group_user_ids = UserRepository.get_group_user_ids(user.id)
+        for user_in_group in group_user_ids:
             # Check user's reminder settings before sending notification
-            from app.services.reminder_utils import should_send_task_notification
-
-            if should_send_task_notification(user_in_group, "delete"):
+            if user_in_group != user.id and should_send_task_notification(
+                user_in_group, "delete"
+            ):
                 NotificationManager.notify_task_deleted(
                     user_id=user_in_group,
                     executor_user_id=user.id,
