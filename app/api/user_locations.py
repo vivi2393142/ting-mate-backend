@@ -79,8 +79,9 @@ def update_location(
     if not ok:
         raise HTTPException(status_code=500, detail="Failed to update location.")
 
-    # Check safe zone and send notifications if needed
-    _check_safe_zone_and_notify(user, location.latitude, location.longitude)
+    # Safely check safe zone and send notifications if needed
+    with safe_block("safe zone notification"):
+        _check_safe_zone_and_notify(user, location.latitude, location.longitude)
 
     loc = UserLocationsRepository.get_location(user.id)
     return loc
@@ -106,23 +107,48 @@ def _check_safe_zone_and_notify(user: User, latitude: float, longitude: float):
         safe_zone_radius_meters=safe_zone.radius,
     )
 
-    # If user is outside safe zone, notify linked caregivers
-    with safe_block("safe zone notification"):
-        if not is_within:
-            # Get linked caregivers
-            links = UserRepository.get_user_links(user.id, user.role)
-            for link in links:
-                linked_user = UserRepository.get_user(link["email"], by="email")
-                # Check if caregiver wants safe zone notifications
-                if (
-                    linked_user
-                    and linked_user.role == Role.CAREGIVER
-                    and should_send_safe_zone_notification(linked_user.id)
-                ):
-                    NotificationManager.notify_safezone_warning(
-                        user_id=linked_user.id,
-                        monitor_user_id=user.id,
-                    )
+    # If user is currently within safe zone, no need to check previous status
+    if is_within:
+        return
+
+    # Get previous location to check status change
+    previous_location = UserLocationsRepository.get_location(user.id)
+    previous_is_within = None
+
+    if previous_location:
+        # Check if previous location was within safe zone
+        previous_is_within = is_within_safe_zone(
+            user_lat=previous_location.latitude,
+            user_lon=previous_location.longitude,
+            safe_zone_lat=safe_zone.location.latitude,
+            safe_zone_lon=safe_zone.location.longitude,
+            safe_zone_radius_meters=safe_zone.radius,
+        )
+
+    # Determine if status changed (from inside to outside, or first time outside)
+    status_changed = False
+    if previous_is_within is None:
+        # First time checking, notify if outside
+        status_changed = True
+    else:
+        # Compare previous and current status
+        status_changed = previous_is_within  # Inside -> Outside
+
+    if status_changed:
+        # Get linked caregivers
+        links = UserRepository.get_user_links(user.id, user.role)
+        for link in links:
+            linked_user = UserRepository.get_user(link["email"], by="email")
+            # Check if caregiver wants safe zone notifications
+            if (
+                linked_user
+                and linked_user.role == Role.CAREGIVER
+                and should_send_safe_zone_notification(linked_user.id)
+            ):
+                NotificationManager.notify_safezone_warning(
+                    user_id=linked_user.id,
+                    monitor_user_id=user.id,
+                )
 
 
 @get_route(
