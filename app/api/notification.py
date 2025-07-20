@@ -114,11 +114,8 @@ async def notification_event_generator(user_id: str):
     queue = user_queues.setdefault(user_id, asyncio.Queue())
     try:
         while True:
-            # Add timeout to prevent hanging connections
-            notification = await asyncio.wait_for(queue.get(), timeout=30)
+            notification = await queue.get()
             yield f"data: {json.dumps(notification)}\n\n"
-    except asyncio.TimeoutError:
-        logger.info(f"Connection timeout for user {user_id}")
     except asyncio.CancelledError:
         logger.info(f"Connection cancelled for user {user_id}")
     finally:
