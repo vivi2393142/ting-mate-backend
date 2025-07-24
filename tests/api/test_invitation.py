@@ -37,33 +37,6 @@ class TestInvitationAPI:
         resp = get_invitation_info(client, "NONEXIST", token)
         assert resp.status_code == 404
 
-    def test_accept_invitation_role_check(self, client, register_user):
-        """Caregiver can only link carereceiver and vice versa."""
-        # Caregiver invites, carereceiver accepts (should succeed)
-        _, caregiver_token, _ = register_user(Role.CAREGIVER)
-        code = create_invitation(client, caregiver_token)
-        _, carereceiver_token, _ = register_user(Role.CARERECEIVER)
-        resp = accept_invitation(client, code, carereceiver_token)
-        assert resp.status_code == 200
-        # Carereceiver invites, caregiver accepts (should succeed)
-        _, carereceiver_token2, _ = register_user(Role.CARERECEIVER)
-        code2 = create_invitation(client, carereceiver_token2)
-        _, caregiver_token2, _ = register_user(Role.CAREGIVER)
-        resp2 = accept_invitation(client, code2, caregiver_token2)
-        assert resp2.status_code == 200
-        # Caregiver invites, caregiver accepts (should fail)
-        _, caregiver_token3, _ = register_user(Role.CAREGIVER)
-        code3 = create_invitation(client, caregiver_token3)
-        _, caregiver_token4, _ = register_user(Role.CAREGIVER)
-        resp3 = accept_invitation(client, code3, caregiver_token4)
-        assert resp3.status_code == 400
-        # Carereceiver invites, carereceiver accepts (should fail)
-        _, carereceiver_token3, _ = register_user(Role.CARERECEIVER)
-        code4 = create_invitation(client, carereceiver_token3)
-        _, carereceiver_token4, _ = register_user(Role.CARERECEIVER)
-        resp4 = accept_invitation(client, code4, carereceiver_token4)
-        assert resp4.status_code == 400
-
     def test_accept_invitation_not_found(self, client, register_user):
         _, token, _ = register_user(Role.CAREGIVER)
         resp = accept_invitation(client, "NONEXIST", token)

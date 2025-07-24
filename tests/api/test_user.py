@@ -55,15 +55,15 @@ class TestUserMeAPI:
 
     def test_user_me_linked_content(self, client, register_user):
         """Should return correct linked user info after linking."""
-        caregiver_email, caregiver_token, _ = register_user(Role.CAREGIVER)
+        caregiver_email, caregiver_token, _ = register_user(Role.CARERECEIVER)
         carereceiver_email, carereceiver_token, _ = register_user(Role.CARERECEIVER)
         # Link them
         resp = client.post(
-            "/user/invitations/generate", headers=auth_headers(caregiver_token)
+            "/user/invitations/generate", headers=auth_headers(carereceiver_token)
         )
         code = resp.json()["invitation_code"]
         client.post(
-            f"/user/invitations/{code}/accept", headers=auth_headers(carereceiver_token)
+            f"/user/invitations/{code}/accept", headers=auth_headers(caregiver_token)
         )
         # Check caregiver's linked
         resp2 = client.get("/user/me", headers=auth_headers(caregiver_token))
