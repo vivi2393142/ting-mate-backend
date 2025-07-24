@@ -1,10 +1,30 @@
 from tests.conftest import auth_headers
 
 
-def test_notification_after_create_task(client, register_and_link_users):
+def setup_linked_users(client, register_user):
+    """Helper: register two carereceiver, B accept A's invitation, B become caregiver"""
+    a_email, a_token, a_id = register_user("CARERECEIVER")
+    b_email, b_token, b_id = register_user("CARERECEIVER")
+    # A generate invitation code
+    invite_resp = client.post(
+        "/user/invitations/generate", headers=auth_headers(a_token)
+    )
+    invitation_code = invite_resp.json()["invitation_code"]
+    # B accept, B become caregiver
+    accept_resp = client.post(
+        f"/user/invitations/{invitation_code}/accept",
+        headers=auth_headers(b_token),
+    )
+    assert accept_resp.status_code == 200
+    return {
+        "carereceiver": {"token": a_token, "email": a_email, "id": a_id},
+        "caregiver": {"token": b_token, "email": b_email, "id": b_id},
+    }
+
+
+def test_notification_after_create_task(client, register_user):
     """Test notification is sent to group members when creating a task."""
-    # Create linked users (caregiver and carereceiver)
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     caregiver_token = users["caregiver"]["token"]
     carereceiver_token = users["carereceiver"]["token"]
 
@@ -29,10 +49,9 @@ def test_notification_after_create_task(client, register_and_link_users):
     assert any("created a new task" in n["message"] for n in notif_list)
 
 
-def test_notification_after_update_task(client, register_and_link_users):
+def test_notification_after_update_task(client, register_user):
     """Test notification is sent to group members when updating a task."""
-    # Create linked users
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     caregiver_token = users["caregiver"]["token"]
     carereceiver_token = users["carereceiver"]["token"]
 
@@ -65,10 +84,9 @@ def test_notification_after_update_task(client, register_and_link_users):
     assert any("updated task" in n["message"] for n in notif_list)
 
 
-def test_notification_after_complete_task(client, register_and_link_users):
+def test_notification_after_complete_task(client, register_user):
     """Test notification is sent to group members when completing a task."""
-    # Create linked users
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     caregiver_token = users["caregiver"]["token"]
     carereceiver_token = users["carereceiver"]["token"]
 
@@ -103,10 +121,9 @@ def test_notification_after_complete_task(client, register_and_link_users):
     assert any("marked" in n["message"] and "done" in n["message"] for n in notif_list)
 
 
-def test_notification_after_delete_task(client, register_and_link_users):
+def test_notification_after_delete_task(client, register_user):
     """Test notification is sent to group members when deleting a task."""
-    # Create linked users
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     caregiver_token = users["caregiver"]["token"]
     carereceiver_token = users["carereceiver"]["token"]
 
@@ -140,13 +157,13 @@ def test_notification_after_delete_task(client, register_and_link_users):
 
 def test_notification_after_accept_invitation(client, register_user):
     """Test notification is sent when accepting an invitation."""
-    # Register users without linking them
+    # Test invitation notification, the process is the same
     cr_email, cr_token, cr_id = register_user("CARERECEIVER")
-    cg_email, cg_token, cg_id = register_user("CAREGIVER")
+    cg_email, cg_token, cg_id = register_user("CARERECEIVER")
 
     # Generate invitation as caregiver
     invite_resp = client.post(
-        "/user/invitations/generate", headers=auth_headers(cg_token)
+        "/user/invitations/generate", headers=auth_headers(cr_token)
     )
     assert invite_resp.status_code == 200
     invitation_code = invite_resp.json()["invitation_code"]
@@ -154,12 +171,12 @@ def test_notification_after_accept_invitation(client, register_user):
     # Accept invitation as carereceiver
     accept_resp = client.post(
         f"/user/invitations/{invitation_code}/accept",
-        headers=auth_headers(cr_token),
+        headers=auth_headers(cg_token),
     )
     assert accept_resp.status_code == 200
 
     # Check that caregiver receives notification
-    response = client.get("/notifications", headers=auth_headers(cg_token))
+    response = client.get("/notifications", headers=auth_headers(cr_token))
     assert response.status_code == 200
     response_data = response.json()
     assert "notifications" in response_data
@@ -167,13 +184,23 @@ def test_notification_after_accept_invitation(client, register_user):
     assert any("linked with you" in n["message"] for n in notif_list)
 
 
-def test_notification_after_safe_zone_violation(client, register_and_link_users):
+def test_notification_after_safe_zone_violation(client, register_user):
     """Test notification is sent when carereceiver leaves safe zone."""
-    # Create linked users
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     caregiver_token = users["caregiver"]["token"]
     carereceiver_token = users["carereceiver"]["token"]
     carereceiver_email = users["carereceiver"]["email"]
+
+    # Allow location sharing
+    updated_settings = {
+        "allow_share_location": True,
+    }
+    update_settings_resp = client.put(
+        "/user/settings",
+        json=updated_settings,
+        headers=auth_headers(carereceiver_token),
+    )
+    assert update_settings_resp.status_code == 200
 
     # Create safe zone for carereceiver
     safe_zone_data = {
@@ -185,6 +212,7 @@ def test_notification_after_safe_zone_violation(client, register_and_link_users)
         },
         "radius": 1000,  # 1km radius
     }
+
     safe_zone_resp = client.post(
         f"/safe-zone/{carereceiver_email}",
         json=safe_zone_data,
@@ -213,13 +241,23 @@ def test_notification_after_safe_zone_violation(client, register_and_link_users)
     assert any("has left the safe zone" in n["message"] for n in notif_list)
 
 
-def test_no_notification_when_within_safe_zone(client, register_and_link_users):
+def test_no_notification_when_within_safe_zone(client, register_user):
     """Test no notification is sent when carereceiver is within safe zone."""
-    # Create linked users
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     caregiver_token = users["caregiver"]["token"]
     carereceiver_token = users["carereceiver"]["token"]
     carereceiver_email = users["carereceiver"]["email"]
+
+    # Allow location sharing
+    updated_settings = {
+        "allow_share_location": True,
+    }
+    update_settings_resp = client.put(
+        "/user/settings",
+        json=updated_settings,
+        headers=auth_headers(carereceiver_token),
+    )
+    assert update_settings_resp.status_code == 200
 
     # Create safe zone for carereceiver
     safe_zone_data = {
@@ -259,10 +297,9 @@ def test_no_notification_when_within_safe_zone(client, register_and_link_users):
     assert not any("has left the safe zone" in n["message"] for n in notif_list)
 
 
-def test_mark_notifications_as_read(client, register_and_link_users):
+def test_mark_notifications_as_read(client, register_user):
     """Test marking notifications as read."""
-    # Create linked users
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     caregiver_token = users["caregiver"]["token"]
     carereceiver_token = users["carereceiver"]["token"]
 
@@ -314,10 +351,9 @@ def test_mark_notifications_as_read(client, register_and_link_users):
             assert notif["is_read"] is True
 
 
-def test_mark_notifications_as_read_empty_list(client, register_and_link_users):
+def test_mark_notifications_as_read_empty_list(client, register_user):
     """Test marking notifications as read with empty list."""
-    # Create linked users
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     carereceiver_token = users["carereceiver"]["token"]
 
     # Try to mark empty list as read
@@ -330,10 +366,9 @@ def test_mark_notifications_as_read_empty_list(client, register_and_link_users):
     assert "empty" in mark_read_resp.json()["detail"]
 
 
-def test_mark_notifications_as_read_invalid_id(client, register_and_link_users):
+def test_mark_notifications_as_read_invalid_id(client, register_user):
     """Test marking notifications as read with invalid notification ID."""
-    # Create linked users
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     carereceiver_token = users["carereceiver"]["token"]
 
     # Try to mark non-existent notification as read
@@ -346,10 +381,9 @@ def test_mark_notifications_as_read_invalid_id(client, register_and_link_users):
     assert "not found" in mark_read_resp.json()["detail"]
 
 
-def test_mark_notifications_as_read_unauthorized(client, register_and_link_users):
+def test_mark_notifications_as_read_unauthorized(client, register_user):
     """Test marking notifications as read for notifications that don't belong to user."""
-    # Create linked users
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     caregiver_token = users["caregiver"]["token"]
     carereceiver_token = users["carereceiver"]["token"]
 
@@ -384,10 +418,9 @@ def test_mark_notifications_as_read_unauthorized(client, register_and_link_users
     assert "does not belong to current user" in mark_read_resp.json()["detail"]
 
 
-def test_notification_disabled_by_reminder_settings(client, register_and_link_users):
+def test_notification_disabled_by_reminder_settings(client, register_user):
     """Test that notifications are not sent when disabled in reminder settings."""
-    # Create linked users
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     caregiver_token = users["caregiver"]["token"]
     carereceiver_token = users["carereceiver"]["token"]
 
@@ -428,12 +461,9 @@ def test_notification_disabled_by_reminder_settings(client, register_and_link_us
     assert not any("created a new task" in n["message"] for n in notif_list)
 
 
-def test_safe_zone_notification_disabled_by_reminder_settings(
-    client, register_and_link_users
-):
+def test_safe_zone_notification_disabled_by_reminder_settings(client, register_user):
     """Test that safe zone notifications are not sent when disabled in reminder settings."""
-    # Create linked users
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     caregiver_token = users["caregiver"]["token"]
     carereceiver_token = users["carereceiver"]["token"]
     carereceiver_email = users["carereceiver"]["email"]
@@ -453,6 +483,17 @@ def test_safe_zone_notification_disabled_by_reminder_settings(
         headers=auth_headers(caregiver_token),
     )
     assert settings_resp.status_code == 200
+
+    # Allow location sharing
+    updated_settings = {
+        "allow_share_location": True,
+    }
+    update_settings_resp = client.put(
+        "/user/settings",
+        json=updated_settings,
+        headers=auth_headers(carereceiver_token),
+    )
+    assert update_settings_resp.status_code == 200
 
     # Create safe zone for carereceiver
     safe_zone_data = {
@@ -492,10 +533,9 @@ def test_safe_zone_notification_disabled_by_reminder_settings(
     assert not any("has left the safe zone" in n["message"] for n in notif_list)
 
 
-def test_get_notifications_with_total_count(client, register_and_link_users):
+def test_get_notifications_with_total_count(client, register_user):
     """Test that notifications API returns total count in response."""
-    # Create linked users
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     caregiver_token = users["caregiver"]["token"]
     carereceiver_token = users["carereceiver"]["token"]
 
@@ -534,10 +574,9 @@ def test_get_notifications_with_total_count(client, register_and_link_users):
     assert response_data["offset"] == 0  # Default offset
 
 
-def test_get_notifications_pagination(client, register_and_link_users):
+def test_get_notifications_pagination(client, register_user):
     """Test notifications API pagination with limit and offset."""
-    # Create linked users
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     caregiver_token = users["caregiver"]["token"]
     carereceiver_token = users["carereceiver"]["token"]
 
@@ -584,10 +623,9 @@ def test_get_notifications_pagination(client, register_and_link_users):
     assert first_page_ids.isdisjoint(second_page_ids)  # No overlap
 
 
-def test_no_self_notification(client, register_and_link_users):
+def test_no_self_notification(client, register_user):
     """Test that users don't receive notifications for their own actions."""
-    # Create linked users
-    users = register_and_link_users
+    users = setup_linked_users(client, register_user)
     caregiver_token = users["caregiver"]["token"]
 
     # Create task as caregiver

@@ -21,7 +21,8 @@ def create_link_by_invitation(client, inviter_token, invitee_token):
 class TestLinkAPI:
     def test_remove_link_success(self, client, register_user):
         """Should remove link by email successfully."""
-        caregiver_email, caregiver_token, _ = register_user(Role.CAREGIVER)
+        # Register caregiver(be carereceiver before linking) and carereceiver
+        caregiver_email, caregiver_token, _ = register_user(Role.CARERECEIVER)
         carereceiver_email, carereceiver_token, _ = register_user(Role.CARERECEIVER)
         create_link_by_invitation(client, caregiver_token, carereceiver_token)
         # Remove link from caregiver side

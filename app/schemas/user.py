@@ -76,6 +76,7 @@ class EmergencyContactUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
     methods: Optional[List[ContactMethod]] = None
+    email: Optional[str] = None
 
 
 # Location schemas

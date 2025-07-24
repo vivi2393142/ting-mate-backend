@@ -10,7 +10,7 @@ from app.schemas.invitation import (
     InvitationResponse,
     InvitationStatus,
 )
-from app.schemas.user import User
+from app.schemas.user import Role, User
 from app.services.link import LinkService
 from app.services.notification_manager import NotificationManager
 from app.utils.safe_block import safe_block
@@ -101,14 +101,27 @@ def accept_invitation(
             raise HTTPException(status_code=404, detail="Inviter not found")
         invitee = user
 
-        # Strict role check: only caregiver can link carereceiver and vice versa
-        # If inviter is caregiver, invitee must be carereceiver
-        # If inviter is carereceiver, invitee must be caregiver
-        if inviter.role == invitee.role:
+        # --- Check both are carereceiver and no existing caregiver links ---
+        if inviter.role != Role.CARERECEIVER or invitee.role != Role.CARERECEIVER:
             raise HTTPException(
                 status_code=400,
-                detail="Caregiver can only link carereceiver and vice versa",
+                detail="Both inviter and invitee must be carereceiver at the time of acceptance",
             )
+
+        # Check invitee has no linked caregiver
+        invitee_links = LinkService.get_carereceiver_links(invitee.id)
+        if invitee_links:
+            raise HTTPException(
+                status_code=400, detail="Invitee already has a linked caregiver"
+            )
+        # Set invitee role to CAREGIVER before linking
+        update_success = UserRepository.update_user_role(invitee.id, Role.CAREGIVER)
+        if not update_success:
+            raise HTTPException(
+                status_code=500, detail="Failed to update invitee role to CAREGIVER"
+            )
+        # Refresh invitee object after role update
+        invitee = UserRepository.get_user(invitee.id, by="id")
 
         success, message, linked_user_info = LinkService.accept_invitation(
             invitation_code, invitee_id

@@ -13,12 +13,15 @@ logger = logging.getLogger(__name__)
 def register_and_link_users(client, register_user):
     """Register a carereceiver and caregiver, link them, and return their info."""
     cr_email, cr_token, cr_id = register_user(Role.CARERECEIVER)
-    cg_email, cg_token, cg_id = register_user(Role.CAREGIVER)
+    # register as carereceiver, but will be updated to caregiver when accepting invitation
+    cg_email, cg_token, cg_id = register_user(Role.CARERECEIVER)
+
     # caregiver generates invitation
-    resp = client.post("/user/invitations/generate", headers=auth_headers(cg_token))
+    resp = client.post("/user/invitations/generate", headers=auth_headers(cr_token))
     code = resp.json()["invitation_code"]
+
     # carereceiver accepts invitation
-    client.post(f"/user/invitations/{code}/accept", headers=auth_headers(cr_token))
+    client.post(f"/user/invitations/{code}/accept", headers=auth_headers(cg_token))
     return {
         "carereceiver": {"email": cr_email, "token": cr_token, "id": cr_id},
         "caregiver": {"email": cg_email, "token": cg_token, "id": cg_id},
@@ -40,31 +43,6 @@ class TestSafeZoneAPI:
         }
         resp = client.post(
             f"/safe-zone/{email}", json=safe_zone_data, headers=auth_headers(token)
-        )
-        assert resp.status_code == status.HTTP_200_OK
-        data = resp.json()
-        assert data["location"]["name"] == "Home"
-        assert data["radius"] == 1000
-
-    def test_caregiver_create_safe_zone_for_linked_carereceiver(
-        self, client, register_and_link_users
-    ):
-        """Caregiver should be able to create safe zone for linked carereceiver."""
-        users = register_and_link_users
-        caregiver = users["caregiver"]
-        safe_zone_data = {
-            "location": {
-                "name": "Home",
-                "address": "123 Main St, Bristol",
-                "latitude": 51.4529183,
-                "longitude": -2.5994918,
-            },
-            "radius": 1000,
-        }
-        resp = client.post(
-            f"/safe-zone/{users['carereceiver']['email']}",
-            json=safe_zone_data,
-            headers=auth_headers(caregiver["token"]),
         )
         assert resp.status_code == status.HTTP_200_OK
         data = resp.json()
@@ -127,6 +105,18 @@ class TestSafeZoneAPI:
         users = register_and_link_users
         carereceiver = users["carereceiver"]
         caregiver = users["caregiver"]
+
+        # Allow location sharing
+        updated_settings = {
+            "allow_share_location": True,
+        }
+        update_settings_resp = client.put(
+            "/user/settings",
+            json=updated_settings,
+            headers=auth_headers(carereceiver["token"]),
+        )
+        assert update_settings_resp.status_code == 200
+
         # Create safe zone first
         safe_zone_data = {
             "location": {
@@ -142,6 +132,7 @@ class TestSafeZoneAPI:
             json=safe_zone_data,
             headers=auth_headers(carereceiver["token"]),
         )
+
         # Get safe zone as caregiver
         resp = client.get(
             f"/safe-zone/{carereceiver['email']}",

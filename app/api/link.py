@@ -4,7 +4,7 @@ from app.api.deps import get_registered_user
 from app.core.api_decorator import delete_route
 from app.repositories.activity_log import ActivityLogRepository
 from app.repositories.user import UserRepository
-from app.schemas.user import User
+from app.schemas.user import Role, User
 from app.services.link import LinkService
 from app.utils.safe_block import safe_block
 
@@ -43,6 +43,18 @@ def remove_user_link(
                 ]
                 or target_user.email,
             )
+
+        # --- Auto-switch to CARERECEIVER if user is CAREGIVER and has no more links ---
+        links = UserRepository.get_user_links(user.id, Role.CAREGIVER)
+        if user.role == Role.CAREGIVER and len(links) == 0:
+            old_role = user.role.value
+            update_success = UserRepository.update_user_role(user.id, Role.CARERECEIVER)
+            if update_success:
+                with safe_block("role transition logging"):
+                    ActivityLogRepository.log_role_transition(
+                        user.id, old_role, Role.CARERECEIVER.value
+                    )
+        # --- End auto-switch logic ---
 
         return {"message": "Link removed successfully"}
     except HTTPException:

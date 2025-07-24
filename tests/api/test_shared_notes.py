@@ -40,8 +40,8 @@ class TestSharedNotesAPI:
             Role.CARERECEIVER
         )
 
-        # Create caregiver and link them
-        caregiver_email, caregiver_token, _ = register_user(Role.CAREGIVER)
+        # Create carereceiver and  link them to become caregiver
+        caregiver_email, caregiver_token, _ = register_user(Role.CARERECEIVER)
 
         # Generate invitation from carereceiver
         invite_response = client.post(
@@ -145,8 +145,8 @@ class TestSharedNotesAPI:
         )
         assert create_response.status_code == status.HTTP_200_OK
 
-        # Create caregiver and link them
-        caregiver_email, caregiver_token, _ = register_user(Role.CAREGIVER)
+        # Create carereceiver and link them to become caregiver
+        caregiver_email, caregiver_token, _ = register_user(Role.CARERECEIVER)
 
         # Generate invitation from carereceiver
         invite_response = client.post(
@@ -337,8 +337,8 @@ class TestSharedNotesAPI:
         assert create_response.status_code == status.HTTP_200_OK
         note_id = create_response.json()["id"]
 
-        # Create caregiver and link them
-        caregiver_email, caregiver_token, _ = register_user(Role.CAREGIVER)
+        # Create carereceiver and link them to become caregiver
+        caregiver_email, caregiver_token, _ = register_user(Role.CARERECEIVER)
 
         # Generate invitation from carereceiver
         invite_response = client.post(
@@ -379,8 +379,8 @@ class TestSharedNotesAPI:
         assert create_response.status_code == status.HTTP_200_OK
         note_id = create_response.json()["id"]
 
-        # Create first caregiver and link them
-        caregiver1_email, caregiver1_token, _ = register_user(Role.CAREGIVER)
+        # Create first carereceiver and link them to become caregiver
+        caregiver1_email, caregiver1_token, _ = register_user(Role.CARERECEIVER)
 
         # Generate invitation from carereceiver
         invite_response = client.post(
@@ -396,7 +396,7 @@ class TestSharedNotesAPI:
         assert accept_response.status_code == status.HTTP_200_OK
 
         # Create second caregiver and link them
-        caregiver2_email, caregiver2_token, _ = register_user(Role.CAREGIVER)
+        caregiver2_email, caregiver2_token, _ = register_user(Role.CARERECEIVER)
 
         # Generate another invitation
         invite_response2 = client.post(

@@ -73,6 +73,9 @@ def update_location(
     if not settings or not settings.get("allow_share_location"):
         raise HTTPException(status_code=403, detail="Location sharing not enabled.")
 
+    # Get previous location
+    previous_location = UserLocationsRepository.get_location(user.id)
+
     ok = UserLocationsRepository.upsert_location(
         user.id, location.latitude, location.longitude
     )
@@ -81,13 +84,17 @@ def update_location(
 
     # Safely check safe zone and send notifications if needed
     with safe_block("safe zone notification"):
-        _check_safe_zone_and_notify(user, location.latitude, location.longitude)
+        _check_safe_zone_and_notify(
+            user, location.latitude, location.longitude, previous_location
+        )
 
     loc = UserLocationsRepository.get_location(user.id)
     return loc
 
 
-def _check_safe_zone_and_notify(user: User, latitude: float, longitude: float):
+def _check_safe_zone_and_notify(
+    user: User, latitude: float, longitude: float, previous_location=None
+):
     """Check if user is within safe zone and send notifications if not."""
     # Only check for carereceivers
     if user.role != Role.CARERECEIVER:
@@ -111,8 +118,6 @@ def _check_safe_zone_and_notify(user: User, latitude: float, longitude: float):
     if is_within:
         return
 
-    # Get previous location to check status change
-    previous_location = UserLocationsRepository.get_location(user.id)
     previous_is_within = None
 
     if previous_location:

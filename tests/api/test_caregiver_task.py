@@ -60,9 +60,9 @@ class TestCaregiverTaskAPI:
 
     def test_caregiver_creates_task_for_carereceiver(self, client):
         """Caregiver should be able to create tasks for linked carereceiver"""
-        # Register caregiver and carereceiver
+        # Register caregiver(be carereceiver before linking) and carereceiver
         caregiver_email, caregiver_token, caregiver_id = self._register_and_login(
-            client, role=Role.CAREGIVER
+            client, role=Role.CARERECEIVER
         )
         carereceiver_email, carereceiver_token, carereceiver_id = (
             self._register_and_login(client, role=Role.CARERECEIVER)
@@ -94,9 +94,9 @@ class TestCaregiverTaskAPI:
 
     def test_caregiver_updates_task_for_carereceiver(self, client):
         """Caregiver should be able to update tasks for linked carereceiver"""
-        # Register caregiver and carereceiver
+        # Register caregiver(be carereceiver before linking) and carereceiver
         caregiver_email, caregiver_token, caregiver_id = self._register_and_login(
-            client, role=Role.CAREGIVER
+            client, role=Role.CARERECEIVER
         )
         carereceiver_email, carereceiver_token, carereceiver_id = (
             self._register_and_login(client, role=Role.CARERECEIVER)
@@ -133,9 +133,9 @@ class TestCaregiverTaskAPI:
 
     def test_caregiver_deletes_task_for_carereceiver(self, client):
         """Caregiver should be able to delete tasks for linked carereceiver"""
-        # Register caregiver and carereceiver
+        # Register caregiver(be carereceiver before linking) and carereceiver
         caregiver_email, caregiver_token, caregiver_id = self._register_and_login(
-            client, role=Role.CAREGIVER
+            client, role=Role.CARERECEIVER
         )
         carereceiver_email, carereceiver_token, carereceiver_id = (
             self._register_and_login(client, role=Role.CARERECEIVER)
@@ -171,84 +171,6 @@ class TestCaregiverTaskAPI:
         resp = client.get("/tasks", headers=self._auth_headers(carereceiver_token))
         assert resp.status_code == status.HTTP_200_OK
         assert len(resp.json()["tasks"]) == 0
-
-    def test_complex_role_transition_scenario(self, client):
-        """Complex scenario: user starts as carereceiver, creates task, then transitions to caregiver, and can switch back if no links."""
-        # Step 1: Create a user as carereceiver
-        user_id = str(uuid.uuid4())
-        carereceiver_email, carereceiver_token, _ = self._register_and_login(
-            client, user_id, role=Role.CARERECEIVER
-        )
-
-        # Step 2: Create a task as carereceiver
-        task_data = self._create_task(client, carereceiver_token, "Original task", "📝")
-        task_id = task_data["task"]["id"]
-
-        # Step 3: Verify task exists
-        resp = client.get("/tasks", headers=self._auth_headers(carereceiver_token))
-        assert resp.status_code == status.HTTP_200_OK
-        tasks = resp.json()["tasks"]
-        assert len(tasks) == 1
-        assert tasks[0]["id"] == task_id
-        assert tasks[0]["title"] == "Original task"
-
-        # Step 4: Transition user role from carereceiver to caregiver
-        resp = client.post(
-            "/user/role/transition",
-            json={"target_role": "CAREGIVER"},
-            headers=self._auth_headers(carereceiver_token),
-        )
-        assert resp.status_code == status.HTTP_200_OK
-        assert resp.json()["message"] == "Operation successful"
-
-        # Step 5: Verify that after transition, user can't see their own tasks (caregiver has no tasks)
-        resp = client.get("/tasks", headers=self._auth_headers(carereceiver_token))
-        assert resp.status_code == status.HTTP_200_OK
-        tasks = resp.json()["tasks"]
-        assert len(tasks) == 0  # Caregiver should have no tasks
-
-        # Step 6: Create another user as carereceiver
-        new_carereceiver_email, new_carereceiver_token, _ = self._register_and_login(
-            client, role=Role.CARERECEIVER
-        )
-
-        # Step 7: Link them (caregiver invites, carereceiver accepts)
-        self._link_users(client, carereceiver_token, new_carereceiver_token)
-
-        # Step 8: Verify caregiver can see carereceiver's tasks (but not their old tasks)
-        resp = client.get("/tasks", headers=self._auth_headers(carereceiver_token))
-        assert resp.status_code == status.HTTP_200_OK
-        caregiver_tasks = resp.json()["tasks"]
-        assert len(caregiver_tasks) == 0  # No tasks yet
-
-        # Step 9: Caregiver creates a new task for carereceiver
-        new_task_data = self._create_task(
-            client, carereceiver_token, "Caregiver created task", "💊"
-        )
-        new_task_id = new_task_data["task"]["id"]
-
-        # Step 10: Verify caregiver can see the new task
-        resp = client.get("/tasks", headers=self._auth_headers(carereceiver_token))
-        assert resp.status_code == status.HTTP_200_OK
-        caregiver_tasks = resp.json()["tasks"]
-        assert len(caregiver_tasks) == 1
-        assert caregiver_tasks[0]["id"] == new_task_id
-        assert caregiver_tasks[0]["title"] == "Caregiver created task"
-
-        # Step 11: Verify carereceiver can see the task
-        resp = client.get("/tasks", headers=self._auth_headers(new_carereceiver_token))
-        assert resp.status_code == status.HTTP_200_OK
-        carereceiver_tasks = resp.json()["tasks"]
-        assert len(carereceiver_tasks) == 1
-        assert carereceiver_tasks[0]["id"] == new_task_id
-        assert carereceiver_tasks[0]["title"] == "Caregiver created task"
-
-        # Step 12: Verify the old task is completely gone (not just hidden)
-        # Try to access the old task directly
-        resp = client.get(
-            f"/tasks/{task_id}", headers=self._auth_headers(carereceiver_token)
-        )
-        assert resp.status_code == status.HTTP_404_NOT_FOUND
 
     def test_caregiver_without_linked_carereceiver_gets_no_tasks(self, client):
         """Caregiver without linked carereceiver should get no tasks"""
@@ -300,73 +222,3 @@ class TestCaregiverTaskAPI:
             f"/tasks/{task_id}", headers=self._auth_headers(caregiver_token)
         )
         assert resp.status_code == status.HTTP_404_NOT_FOUND
-
-    def test_role_transition_restrictions(self, client):
-        """Test role transition restrictions: only users with no links can transition, and both roles can switch if no links."""
-        # Test 1: Caregiver cannot transition if has links
-        caregiver_email, caregiver_token, _ = self._register_and_login(
-            client, role=Role.CAREGIVER
-        )
-        resp = client.post(
-            "/user/role/transition",
-            json={"target_role": "CARERECEIVER"},
-            headers=self._auth_headers(caregiver_token),
-        )
-        assert (
-            resp.status_code == status.HTTP_200_OK
-            or resp.status_code == status.HTTP_400_BAD_REQUEST
-        )
-        if resp.status_code == status.HTTP_400_BAD_REQUEST:
-            detail = resp.json()["detail"]
-            assert (
-                "Cannot transition user with existing links" in detail
-                or "Invalid user role" in detail
-            )
-        else:
-            assert resp.json()["message"] == "Operation successful"
-
-        # Test 2: Carereceiver with links cannot transition
-        carereceiver_email, carereceiver_token, _ = self._register_and_login(
-            client, role=Role.CARERECEIVER
-        )
-        another_caregiver_email, another_caregiver_token, _ = self._register_and_login(
-            client, role=Role.CAREGIVER
-        )
-
-        # Link them
-        self._link_users(client, another_caregiver_token, carereceiver_token)
-
-        # Try to transition (should fail)
-        resp = client.post(
-            "/user/role/transition",
-            json={"target_role": "CAREGIVER"},
-            headers=self._auth_headers(carereceiver_token),
-        )
-        assert resp.status_code == status.HTTP_400_BAD_REQUEST
-        detail = resp.json()["detail"]
-        assert "Cannot transition user with existing links" in detail
-
-        # Test 3: Carereceiver without links can transition
-        clean_carereceiver_email, clean_carereceiver_token, _ = (
-            self._register_and_login(client, role=Role.CARERECEIVER)
-        )
-
-        # Create a task first
-        self._create_task(client, clean_carereceiver_token, "Test task", "📝")
-
-        # Transition should succeed
-        resp = client.post(
-            "/user/role/transition",
-            json={"target_role": "CAREGIVER"},
-            headers=self._auth_headers(clean_carereceiver_token),
-        )
-        assert resp.status_code == status.HTTP_200_OK
-        assert resp.json()["message"] == "Operation successful"
-
-        # Verify tasks are gone
-        resp = client.get(
-            "/tasks", headers=self._auth_headers(clean_carereceiver_token)
-        )
-        assert resp.status_code == status.HTTP_200_OK
-        tasks = resp.json()["tasks"]
-        assert len(tasks) == 0

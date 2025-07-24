@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from nanoid import generate
 
 from app.main import app
+from app.schemas.user import Role
 
 
 @pytest.fixture(autouse=True)
@@ -71,19 +72,26 @@ def create_link_by_invitation(client, inviter_token, invitee_token):
 @pytest.fixture
 def register_and_link_users(client, register_user):
     """Register a carereceiver and caregiver, link them, and return their info."""
-    cr_email, cr_token, cr_id = register_user("CARERECEIVER")
-    cg_email, cg_token, cg_id = register_user("CAREGIVER")
+    cr_email, cr_token, cr_id = register_user(Role.CARERECEIVER)
+    # register as carereceiver, but will be updated to caregiver when accepting invitation
+    cg_email, cg_token, cg_id = register_user(Role.CARERECEIVER)
+
+    # carereceiver generates invitation
+    resp = client.post("/user/invitations/generate", headers=auth_headers(cr_token))
+    code = resp.json()["invitation_code"]
+
+    # caregiver accepts invitation
+    resp = client.post(
+        f"/user/invitations/{code}/accept", headers=auth_headers(cg_token)
+    )
+
     # carereceiver enables allow_share_location
     client.put(
         "/user/settings",
         json={"allow_share_location": True},
         headers=auth_headers(cr_token),
     )
-    # caregiver generates invitation
-    resp = client.post("/user/invitations/generate", headers=auth_headers(cg_token))
-    code = resp.json()["invitation_code"]
-    # carereceiver accepts invitation
-    client.post(f"/user/invitations/{code}/accept", headers=auth_headers(cr_token))
+
     return {
         "carereceiver": {"email": cr_email, "token": cr_token, "id": cr_id},
         "caregiver": {"email": cg_email, "token": cg_token, "id": cg_id},
