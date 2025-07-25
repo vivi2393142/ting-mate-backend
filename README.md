@@ -1,7 +1,7 @@
 # TingMate Backend
 
 <p align="center">
-  <img src="https://vivi2393142.github.io/src/assets/images/adaptive-icon.png" alt="Logo" width="200">
+  <img src="logo.png" alt="Logo" width="200">
 </p>
 
 <!-- TODO: Add architecture diagram (optional) -->
