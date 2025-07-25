@@ -17,43 +17,32 @@ To view the app’s user interface and interaction design, see the [Ting Mate Fr
 The backend exposes a range of APIs and services that support app functionality, including voice processing, task scheduling, real-time caregiver interaction, and geolocation.
 
 ```mermaid
-  flowchart TD
-    CareReceiver["Care Receiver"]
-    Caregiver["Caregiver"]
-    App["TingMate App"]
-    CareReceiver --> App
-    Caregiver --> App
+flowchart TD
+ subgraph Backend["Backend Services"]
+        UserService["User Service"]
+        TaskService["Task Service"]
+        NotificationService["Notification Service"]
+        ConnectService["Connect Service"]
+        SSE["SSE (Real-time Push)"]
+        DB["MySQL Database"]
+  end
+  subgraph External["External Services"]
+        Gemini["Gemini (LLM)"]
+        Assembly["AssemblyAI\n(Speech-to-Text)"]
+        GoogleAPI["Google Places API"]
+  end
 
+    CareReceiver["Care Receiver"] --> App["TingMate App\n(Single Codebase)"]
+    Caregiver["Caregiver"] --> App
     App --> BackendAPI["FastAPI Backend\n(REST + SSE)"]
-
-    subgraph Backend ["Backend Services"]
-      UserService["User Service"]
-      TaskService["Task Service"]
-      NotificationService["Notification Service"]
-      ConnectService["Connect Service"]
-      SSE["SSE (Real-time Push)"]
-      DB["MySQL Database"]
-
-      UserService --> DB
-      TaskService --> DB
-      NotificationService --> DB
-      ConnectService --> DB
-      NotificationService --> SSE
-    end
-
-    BackendAPI --> UserService
-    BackendAPI --> TaskService
-    BackendAPI --> NotificationService
-    BackendAPI --> ConnectService
-    BackendAPI --> SSE
-
-    BackendAPI --> External["External Services"]
-
-    subgraph ExternalServices
-      Gemini["Gemini (LLM)"]
-      Assembly["AssemblyAI\n(Speech-to-Text)"]
-      GoogleAPI["Google Places API"]
-    end
+    UserService --> DB
+    TaskService --> DB
+    NotificationService --> DB & SSE
+    ConnectService --> DB
+    BackendAPI --> UserService & TaskService & NotificationService & ConnectService & SSE
+    BackendAPI --> Gemini
+    BackendAPI --> Assembly
+    BackendAPI --> GoogleAPI
 ```
 
 ### Task Management API
