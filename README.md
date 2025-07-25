@@ -28,13 +28,13 @@ flowchart TD
   end
   subgraph External["External Services"]
         Gemini["Gemini (LLM)"]
-        Assembly["AssemblyAI\n(Speech-to-Text)"]
+        Assembly["AssemblyAI (Speech-to-Text)"]
         GoogleAPI["Google Places API"]
   end
 
-    CareReceiver["Care Receiver"] --> App["TingMate App\n(Single Codebase)"]
+    CareReceiver["Care Receiver"] --> App["TingMate App"]
     Caregiver["Caregiver"] --> App
-    App --> BackendAPI["FastAPI Backend\n(REST + SSE)"]
+    App --> BackendAPI["FastAPI Backend (REST + SSE)"]
     UserService --> DB
     TaskService --> DB
     NotificationService --> DB & SSE
