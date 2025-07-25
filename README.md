@@ -1,57 +1,84 @@
 # TingMate Backend
 
-## Project Overview
+<p align="center">
+  <img src="https://vivi2393142.github.io/src/assets/images/adaptive-icon.png" alt="Logo" width="200">
+</p>
 
-**TingMate** is a daily support app designed for memory-impaired individuals and their caregivers, featuring an AI voice assistant to help manage reminders and tasks. The backend provides the API, business logic, and data management for the TingMate ecosystem.
+<!-- TODO: Add architecture diagram (optional) -->
 
-This repository contains the backend implementation, built with Python and FastAPI.
+**Ting Mate** is a mobile app designed to assist memory-impaired individuals and their caregivers with daily task management, reminders, and collaborative features. While the frontend focuses on an accessible interface and voice interaction, the backend powers the system through APIs, logic, and data services.
 
-## Technologies & External Services
+This repository contains the backend implementation, built with **Python** and **FastAPI**.
 
-- **FastAPI**: Web framework for building APIs
-- **Gemini (Google GenAI)**: Used for LLM (Large Language Model) features
-- **AssemblyAI Speech-to-Text**: For audio transcription (voice to text)
-- **MySQL**: Main database
-- **Pydantic**: Data validation and settings
-- **Other common Python libraries**
+To view the app’s user interface and interaction design, see the [Ting Mate Frontend](https://vivi2393142.github.io/ting-mate-backend/) repository.
+
+## Core Services and Capabilities
+
+The backend exposes a range of APIs and services that support app functionality, including voice processing, task scheduling, real-time caregiver interaction, and geolocation.
+
+### Task Management API
+
+- CRUD operations for user tasks
+- Support for recurrence rules and reminders
+- Status tracking and update timestamps
+
+### Voice Assistant Integration
+
+- Accepts transcribed user input (from frontend)
+- Uses **Google Gemini** to parse intent and extract structured task commands
+- Returns actions such as `create`, `edit`, `complete`, or `query` with high reliability
+
+### Speech-to-Text Handling
+
+- Receives audio blobs from frontend
+- Sends to **AssemblyAI** for transcription
+- Returns clean text for LLM processing
+
+### Safe Zone and Location Tracking
+
+- Stores user-defined safe zones (address + radius)
+- Handles location logs and triggers for out-of-zone detection
+- Supports future caregiver alerts
+
+### Account and Session Management
+
+- Supports anonymous usage (UUID-based) with option to upgrade to registered accounts
+- Manages linked caregiver pairs for data sharing
+- Handles onboarding logic and user settings
+
+### Notification Triggering
+
+- Triggers **local push notifications** via task logic and scheduling
+- Supports **real-time caregiver-triggered events** via **SSE (Server-Sent Events)**
+
+## Technologies & Services
+
+- **FastAPI** – Web API framework
+- **MySQL** – Main database
+- **Google Gemini** – LLM-powered task intent parser
+- **AssemblyAI** – Audio-to-text transcription
+- **Server-Sent Events (SSE)** – Real-time event pushing to frontend
+- **Pydantic** – Validation and data modeling
+- **Uvicorn** – ASGI server
 
 ## Project Structure
 
-- `app/`: Main application code
-  - `api/`: API route definitions (REST endpoints)
-  - `core/`: Core settings, configuration, and utilities
-  - `db/`: Database initialization and connection
-  - `repositories/`: Data access layer (SQL operations, CRUD logic)
-  - `schemas/`: Data schemas (Pydantic models for validation)
-  - `services/`: Business logic and service layer (LLM, speech, user, etc.)
-  - `main.py`: Application entry point
-- `scripts/`: Helper scripts for development and deployment
-- `requirements.in`: Main dependency list (for pip-tools)
-- `requirements.txt`: Locked dependencies (production)
-- `requirements-dev.in`: Dev/test dependency list (for pip-tools)
-- `requirements-dev.txt`: Locked dev dependencies
-- `pytest.ini`: Pytest configuration
-- `Makefile`: Common development commands
-- `tests/`: Test cases and testing utilities
-- `.venv/`: Virtual environment (not included in version control)
+```
+app/
+├─ api/           # Route definitions
+├─ core/          # Config, env, and shared helpers
+├─ db/            # DB setup and connection logic
+├─ repositories/  # SQL queries and data access
+├─ schemas/       # Pydantic models
+├─ services/      # Business logic (LLM, voice, user, etc.)
+├─ main.py        # App entrypoint
+scripts/          # CLI tools for DB and dev setup
+tests/            # Pytest test cases
+```
 
-## Environment Variables
+## Setup and Development
 
-The following environment variables are required to run the project:
-
-- `ASSEMBLYAI_API_KEY` — AssemblyAI API key for speech-to-text
-- `GEMINI_API_KEY` — Gemini (Google GenAI) API key for LLM features
-- `GEMINI_MODEL_NAME` — Gemini model name for LLM features (e.g., "gemini-2.5-flash")
-- `DB_HOST` — MySQL database host
-- `DB_USER` — MySQL database user
-- `DB_PASSWORD` — MySQL database password
-- `DB_NAME` — MySQL database name
-
-You can set these in a `.env` file in the project root.
-
-## Getting Started
-
-### 1. Create and Activate a Virtual Environment
+### 1. Create a Virtual Environment
 
 ```bash
 python3 -m venv .venv
@@ -60,42 +87,49 @@ source .venv/bin/activate
 
 ### 2. Install Dependencies
 
-To install all dependencies (including development and testing), use the Makefile:
-
 ```bash
-make sync-all  # Installs both production and development dependencies
+make sync-all  # Includes dev dependencies
 ```
 
-Or, to install only production dependencies:
+### 3. Configure Environment
 
-```bash
-make sync  # Installs only production dependencies
+Create a `.env` file in the project root with the following:
+
+```env
+ASSEMBLYAI_API_KEY=...
+GEMINI_API_KEY=...
+GEMINI_MODEL_NAME=...
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=tingmate
 ```
 
-### 3. Initialize the Database
-
-To initialize or migrate the database, use the provided Makefile command:
+### 4. Initialize the Database
 
 ```bash
 make init-db
 ```
 
-### 4. Run the FastAPI Server
+### 5. Run the Server
 
 ```bash
 make server
 ```
 
-### 5. Run Tests
-
-To run all tests:
+### 6. Run Tests
 
 ```bash
 make test
-```
-
-Or you can use pytest directly:
-
-```bash
+# or
 pytest
 ```
+
+## Future Work
+
+<!-- TODO -->
+
+- Add authentication/authorization layer (OAuth2 or JWT)
+- Optimize database indexes for large caregiver networks
+- Add audit logs and caregiver alerting
+- Support fallback models for LLM or on-device parsing
