@@ -18,7 +18,7 @@ The backend exposes a range of APIs and services that support app functionality,
 
 ```mermaid
 flowchart TD
- subgraph Backend["Backend Services"]
+ subgraph Internal["Internal Services"]
         UserService["User Service"]
         TaskService["Task Service"]
         NotificationService["Notification Service"]
