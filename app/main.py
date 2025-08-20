@@ -22,6 +22,16 @@ load_dotenv()
 
 app = FastAPI()
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 或填你的前端 IP，如 "http://10.136.75.21:8000"
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 router = APIRouter()
 auto_register_routes(router, auth)
 auto_register_routes(router, user)

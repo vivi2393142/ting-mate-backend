@@ -1,20 +1,20 @@
-# TingMate Backend
+# Ting Mate Backend
 
 <p align="center">
   <img src="logo.png" alt="Logo" width="200">
 </p>
 
-<!-- TODO: Add architecture diagram (optional) -->
-
-**Ting Mate** is a mobile app designed to assist memory-impaired individuals and their caregivers with daily task management, reminders, and collaborative features. While the frontend focuses on an accessible interface and voice interaction, the backend powers the system through APIs, logic, and data services.
+**Ting Mate** is a mobile app designed to assist memory-impaired individuals and their caregivers with daily task management, reminders, and collaborative features. While the frontend focuses on an accessible interface and voice interaction, the backend powers the system through APIs, business logic, and data services.
 
 This repository contains the backend implementation, built with **Python** and **FastAPI**.
 
-To view the app’s user interface and interaction design, see the [Ting Mate Frontend](https://vivi2393142.github.io/ting-mate-backend/) repository.
+To view the app’s UI and interaction design, see the **[Ting Mate Frontend](https://vivi2393142.github.io/ting-mate-frontend/)** repository.
 
 ## Core Services and Capabilities
 
-The backend exposes a range of APIs and services that support app functionality, including voice processing, task scheduling, real-time caregiver interaction, and geolocation.
+The backend exposes APIs and services that support app functionality, including voice processing, task scheduling, real-time caregiver interaction, and geolocation.
+
+### System Architecture
 
 ```mermaid
 flowchart TD
@@ -32,8 +32,8 @@ flowchart TD
         GoogleAPI["Google Places API"]
   end
 
-    CareReceiver["Care Receiver"] --> App["TingMate App"]
-    Caregiver["Caregiver"] --> App
+    CareReceiver["Memory Impaired Users"] --> App["Ting Mate App"]
+    Caregiver["Caregivers"] --> App
     App --> BackendAPI["FastAPI Backend (REST + SSE)"]
     UserService --> DB
     TaskService --> DB
@@ -49,58 +49,89 @@ flowchart TD
 
 - CRUD operations for user tasks
 - Support for recurrence rules and reminders
-- Status tracking and update timestamps
+- Status tracking with timestamps
 
 ### Voice Assistant Integration
 
-- Accepts transcribed user input (from frontend)
-- Uses **Google Gemini** to parse intent and extract structured task commands
-- Returns actions such as `create`, `edit`, `complete`, or `query` with high reliability
+```mermaid
+flowchart LR
+    A[User Voice Input] --> B[AssemblyAI<br/>Speech-to-Text]
+    B --> D{First Round of Dialogue?}
+    D -->|No| G
 
-### Speech-to-Text Handling
+    subgraph Stages [Processing Stages]
+        D -->|Yes| E[Stage 1:<br/>Mission Type Checking]
+        E --> Z[Gimini<br/>Processing Type]
+        Z --> |Success| X[Reponse: Mission Type]
+        G[Stage 2:<br/>Task Processing]
+        %% F --> P{Outcome}
+        F -->|Success| Q[Response:<br>Task Data + Question]
+        Q --> L{Completed?}
+        %% F --> R{Intent Type}
+        G -->|CREATE| H[Create Task Prompt]
+        G -->|UPDATE| I[Update Task Prompt]
+        G -->|DELETE| J[Delete Task Prompt]
+        H --> F[Gimini<br/>Processing Task]
+        I --> F
+        J --> F
+        X --> D
+    end
 
-- Receives audio blobs from frontend
-- Sends to **AssemblyAI** for transcription
-- Returns clean text for LLM processing
+    Z -->|Failure| N[End]
+    F -->|Failure| N
+    L -->|Yes| M[Execute & End]
+    L -->|No| O[Ask Follow-up]
+    O --> A
+```
+
+- Endpoints:
+
+  - `/assistant/command`: intent detection + slot filling
+  - `/assistant/execute_pending_task`: executes confirmed task from prior step
+
+- Supports **multi-turn flow** with `conversation_id` and `previous_response`
+- Uses **Google Gemini** to parse structured task commands
 
 ### Safe Zone and Location Tracking
 
 - Stores user-defined safe zones (address + radius)
-- Handles location logs and triggers for out-of-zone detection
-- Supports future caregiver alerts
+- Location synced every 10 minutes (foreground only)
+- Out-of-zone triggers planned with push notifications
 
 ### Account and Session Management
 
-- Supports anonymous usage (UUID-based) with option to upgrade to registered accounts
-- Manages linked caregiver pairs for data sharing
-- Handles onboarding logic and user settings
+- Anonymous usage (UUID-based), upgradable to registered accounts
+- Data migrates automatically after login
+- Linked caregiver pairs for shared data access
+- Role-based logic: care receiver by default, caregiver requires login
 
 ### Notification Triggering
 
-- Triggers **local push notifications** via task logic and scheduling
-- Supports **real-time caregiver-triggered events** via **SSE (Server-Sent Events)**
+- **Local scheduled notifications**: reminders & missed tasks
+- **SSE events**: real-time caregiver updates while app is open
+- **Push notifications**: planned for background alerts
 
 ## Technologies & Services
 
 - **FastAPI** – Web API framework
 - **MySQL** – Main database
-- **Google Gemini** – LLM-powered task intent parser
+- **Google Gemini** – LLM-powered intent parsing
 - **AssemblyAI** – Audio-to-text transcription
-- **Server-Sent Events (SSE)** – Real-time event pushing to frontend
-- **Pydantic** – Validation and data modeling
+- **Server-Sent Events (SSE)** – Real-time event push
+- **Pydantic** – Validation & data modeling
 - **Uvicorn** – ASGI server
 
 ## Project Structure
 
 ```
 app/
-├─ api/           # Route definitions
-├─ core/          # Config, env, and shared helpers
-├─ db/            # DB setup and connection logic
-├─ repositories/  # SQL queries and data access
-├─ schemas/       # Pydantic models
-├─ services/      # Business logic (LLM, voice, user, etc.)
-├─ main.py        # App entrypoint
+  ├─ api/           # Route definitions
+  ├─ core/          # Config, env, and shared helpers
+  ├─ db/            # DB setup and connection logic
+  ├─ repositories/  # SQL queries and data access
+  ├─ schemas/       # Pydantic models
+  ├─ services/      # Business logic (LLM, voice, user, etc.)
+  ├─ main.py        # App entrypoint
 scripts/          # CLI tools for DB and dev setup
 tests/            # Pytest test cases
 ```
@@ -117,12 +148,12 @@ source .venv/bin/activate
 ### 2. Install Dependencies
 
 ```bash
-make sync-all  # Includes dev dependencies
+make sync-all
 ```
 
 ### 3. Configure Environment
 
-Create a `.env` file in the project root with the following:
+Create `.env` in project root:
 
 ```env
 ASSEMBLYAI_API_KEY=...
@@ -132,6 +163,8 @@ DB_HOST=localhost
 DB_USER=root
 DB_PASSWORD=your_password
 DB_NAME=tingmate
+JWT_SECRET_KEY=...
+JWT_ALGORITHM=HS256
 ```
 
 ### 4. Initialize the Database
@@ -154,11 +187,43 @@ make test
 pytest
 ```
 
+## API Overview
+
+| Category      | Endpoint                          | Description                            |
+| ------------- | --------------------------------- | -------------------------------------- |
+| Tasks         | `/tasks` (CRUD)                   | Manage tasks and reminders             |
+| Assistant     | `/assistant/command`              | Parse intent, slot filling             |
+|               | `/assistant/execute_pending_task` | Execute confirmed task                 |
+| Users/Auth    | `/auth/login`, `/auth/register`   | JWT auth, supports anonymous upgrade   |
+| Connect       | `/connect`                        | Safe zone, contacts, shared notes/logs |
+| Notifications | `/sse`                            | Real-time caregiver updates            |
+
 ## Future Work
 
-<!-- TODO -->
+- **Background Functionality**
 
-- Add authentication/authorization layer (OAuth2 or JWT)
-- Optimize database indexes for large caregiver networks
-- Add audit logs and caregiver alerting
-- Support fallback models for LLM or on-device parsing
+  - Enable background location tracking
+  - Implement push notifications for closed-app caregiver alerts
+
+- **Voice Assistant Enhancements**
+
+  - Improve accuracy for task-related commands
+  - Support casual conversations and non-task queries
+  - Integrate iOS built-in speech-to-text
+
+- **Account Linking**
+
+  - QR code–based linking for easier setup
+
+- **Accessibility & Internationalization**
+
+  - Expand accessibility profiles (large text, simple UI)
+  - Add multi-language support
+
+- **Backend Improvements**
+
+  - Add refresh tokens for JWT auth
+  - Optimize DB indexes for larger caregiver networks
+  - Add audit logs and caregiver alerting
+  - Explore fallback LLM models or on-device parsing
+  - Strengthen privacy controls for sensitive data

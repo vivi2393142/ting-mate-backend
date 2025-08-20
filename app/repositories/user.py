@@ -3,6 +3,7 @@ User repository - handles all database operations for users
 """
 
 import json
+import logging
 from typing import Literal, Optional
 from uuid import UUID
 
@@ -11,6 +12,8 @@ import mysql.connector
 from app.core.database import execute_query, execute_update
 from app.schemas.user import Role, User, UserDB, UserDisplayMode, UserTextSize
 from app.services.security import get_password_hash
+
+logger = logging.getLogger(__name__)
 
 
 class UserRepository:
@@ -77,12 +80,31 @@ class UserRepository:
                     raise
             # Ensure user settings exist (insert if not exists)
             settings_sql = """
-            INSERT IGNORE INTO user_settings (user_id, name, text_size, display_mode)
-            VALUES (%s, %s, %s, %s)
+            INSERT IGNORE INTO user_settings (user_id, name, text_size, display_mode, reminder)
+            VALUES (%s, %s, %s, %s, %s)
             """
+            initReminder = {
+                "task_reminder": True,
+                "overdue_reminder": {
+                    "enabled": True,
+                    "delay_minutes": 30,
+                    "repeat": False,
+                },
+                "safe_zone_exit_reminder": False,
+                "task_completion_notification": True,
+                "task_change_notification": True,
+            }
+            initReminder_json = json.dumps(initReminder)
+            logger.info(f"❤️ update settings {initReminder}")
             execute_update(
                 settings_sql,
-                (user_create.id, "", UserTextSize.STANDARD, UserDisplayMode.FULL),
+                (
+                    user_create.id,
+                    "",
+                    UserTextSize.STANDARD,
+                    UserDisplayMode.FULL,
+                    initReminder_json,
+                ),
             )
             # Return user object
             return User(
@@ -106,6 +128,8 @@ class UserRepository:
             existing = UserRepository.get_user(user_id, "id")
             if existing:
                 raise ValueError("User id already exists")
+
+            logger.info("🤖 create_anonymous_user")
             # Insert anonymous user into database
             insert_sql = """
             INSERT INTO users (id, email, hashed_password, role)
@@ -124,10 +148,26 @@ class UserRepository:
             settings_sql = """
             INSERT INTO user_settings (
                 user_id, name, text_size, display_mode, 
-                allow_share_location
+                allow_share_location, reminder
             )
-            VALUES (%s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """
+
+            initReminder = {
+                "task_reminder": True,
+                "overdue_reminder": {
+                    "enabled": True,
+                    "delay_minutes": 30,
+                    "repeat": False,
+                },
+                "safe_zone_exit_reminder": False,
+                "task_completion_notification": True,
+                "task_change_notification": True,
+            }
+            initReminder_json = json.dumps(initReminder)
+
+            logger.info(f"🤖initReminder_json: {initReminder_json}")
+
             execute_update(
                 settings_sql,
                 (
@@ -136,6 +176,7 @@ class UserRepository:
                     UserTextSize.STANDARD,
                     UserDisplayMode.FULL,
                     False,
+                    initReminder_json,
                 ),
             )
             # Return user object
@@ -235,6 +276,7 @@ class UserRepository:
                 INSERT INTO user_settings (user_id, name, text_size, display_mode)
                 VALUES (%s, %s, %s, %s)
                 """
+
                 execute_update(
                     create_sql,
                     (user_id, "", UserTextSize.STANDARD, UserDisplayMode.FULL),
